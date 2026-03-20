@@ -277,38 +277,52 @@ def example_05_employee_tree():
 def _attendance_diagnose(cl, month: int, year: int, employee_id: str) -> None:
     """Prova varianti di endpoint e parametri per l'attendance API."""
     import calendar as _cal
+    from zoho_vertical_sdk.attendance import _org_from_service_url
     first = date(year, month, 1).strftime("%d/%m/%Y")
     last  = date(year, month, _cal.monthrange(year, month)[1]).strftime("%d/%m/%Y")
-    svc   = {"servicename": "zohopeople", "serviceurl": SERVICE_URL} if SERVICE_URL else {}
 
-    # Endpoint getUserReport (corretto per report mensile)
     base_report = {"sdate": first, "edate": last, "dateFormat": "dd/MM/yyyy"}
-    # Endpoint vecchio (check-in/out) — manteniamo per confronto
     base_old    = {"dateRange": f"{first},{last}", "dateFormat": "dd/MM/yyyy"}
 
-    variants = [
-        # --- endpoint corretto: getUserReport ---
-        ("getUserReport – nessun empId",      "attendance/getUserReport", {**base_report}),
-        ("getUserReport – empId=self",        "attendance/getUserReport", {**base_report, "empId": "self"}),
-        ("getUserReport – empId=ID",          "attendance/getUserReport", {**base_report, "empId": employee_id}),
-        # --- getAttendanceEntries (singolo giorno) ---
-        ("getAttendanceEntries – empId=ID",   "attendance/getAttendanceEntries",
-         {"date": first, "empId": employee_id, "dateFormat": "dd/MM/yyyy"}),
-        ("getAttendanceEntries – erecno=ID",  "attendance/getAttendanceEntries",
-         {"date": first, "erecno": employee_id, "dateFormat": "dd/MM/yyyy"}),
-        # --- vecchio endpoint attendance (solo check-in/out) ---
-        ("attendance – userId=ID (vecchio)",  "attendance", {**base_old, "userId": employee_id}),
-    ]
+    # -----------------------------------------------------------------
+    # 1. Endpoint interno .zp (stesso del vecchio script)
+    # -----------------------------------------------------------------
     if SERVICE_URL:
-        variants += [
-            ("getUserReport+svc – empId=ID",  "attendance/getUserReport",
-             {**base_report, **svc, "empId": employee_id}),
-        ]
-    else:
-        info("  ℹ  ZOHO_SERVICE_URL non impostato – imposta es. ZOHO_SERVICE_URL=/relewanthrm/zp")
-
-    for label, endpoint, params in variants:
+        org      = _org_from_service_url(SERVICE_URL)
+        web_base = f"{cl.api_domain}/{org}"
+        web_url  = f"{web_base}/AttendanceViewAction.zp"
+        web_params = {**base_old, "userId": employee_id}
         try:
+            raw = cl.get_absolute(web_url, params=web_params)
+            if isinstance(raw, dict) and raw.get("response") == "failure":
+                info(f"  ✗  [AttendanceViewAction.zp] → {raw.get('msg','?')}")
+            elif isinstance(raw, dict) and "dayList" in raw:
+                ok(f"  ✓  [AttendanceViewAction.zp] → SUCCESSO ({len(raw['dayList'])} giorni)")
+                dump("  risposta [AttendanceViewAction.zp]", raw)
+                return
+            else:
+                info(f"  ?  [AttendanceViewAction.zp] → risposta inattesa")
+                dump("  raw", raw)
+        except ZohoAPIError as ex:
+            info(f"  ✗  [AttendanceViewAction.zp] → {ex}")
+    else:
+        info("  ℹ  ZOHO_SERVICE_URL non impostato → imposta es. ZOHO_SERVICE_URL=/relewanthrm/zp")
+
+    # -----------------------------------------------------------------
+    # 2. REST API – getUserReport
+    # -----------------------------------------------------------------
+    rest_variants = [
+        ("getUserReport – nessun empId",      {**base_report}),
+        ("getUserReport – empId=ID",          {**base_report, "empId": employee_id}),
+        ("getAttendanceEntries – empId=ID",   None),   # endpoint diverso
+    ]
+    for label, params in [
+        ("getUserReport – nessun empId",     {**base_report}),
+        ("getUserReport – empId=ID",         {**base_report, "empId": employee_id}),
+        ("attendance – userId=ID (vecchio)", {**base_old, "userId": employee_id}),
+    ]:
+        try:
+            endpoint = "attendance/getUserReport" if "getUserReport" in label else "attendance"
             raw = cl.get(endpoint, params=params)
             if isinstance(raw, list) and raw and raw[0].get("response") == "failure":
                 info(f"  ✗  [{label}] → {raw[0].get('msg','?')}")
@@ -354,16 +368,19 @@ def example_06_attendance_monthly():
 
         user = result.get("userDetails", {})
         if user:
-            info(f"Dipendente: {user.get('firstName', user.get('first name',''))} "
-                 f"{user.get('lastName', user.get('last name',''))}  "
-                 f"eNo={user.get('eNo','?')}")
+            info(f"Dipendente: {user.get('fName', user.get('firstName', user.get('first name','')))} "
+                 f"  eNo={user.get('eNo','N/A')}  source={result.get('_source','?')}")
 
         day_list = result.get("dayList", {})
         if day_list:
-            present = sum(1 for d in day_list.values() if d.get("status") == "Present")
-            absent  = sum(1 for d in day_list.values()
-                          if d.get("status") in ("Absent", "") and d.get("tHrs") == "00:00")
-            ok(f"Giorni nel mese: {len(day_list)}  |  Presenti: {present}  |  Assenti: {absent}")
+            from zoho_vertical_sdk.attendance import PeopleAttendanceAPI as _A
+            skip_s  = _A._SKIP_STATUSES
+            absent_s = _A._ABSENT_STATUSES
+            present  = sum(1 for d in day_list.values()
+                           if d.get("status") not in skip_s and d.get("tHrs","00:00") != "00:00")
+            absent   = len(_A.absent_days_from_daylist(day_list))
+            weekend  = sum(1 for d in day_list.values() if d.get("status") in ("Weekend","Fine settimana"))
+            ok(f"Giorni: {len(day_list)}  |  Presenti: {present}  |  Assenti: {absent}  |  Weekend: {weekend}")
 
             info("Primi 5 giorni:")
             for date_key, day in list(day_list.items())[:5]:
@@ -862,6 +879,22 @@ def main():
                 )
                 client = manager.get_client()
                 ok("Client autenticato via ZohoAuthManager")
+
+                # Mostra scope effettivamente concessi da Zoho
+                gs = getattr(manager._creds, "granted_scope", "") or ""
+                if gs:
+                    info(f"Scope concessi dal token: {gs}")
+                    required = [
+                        "ZohoPeople.attendance.ALL",
+                        "ZohoPeople.timetracker.ALL",
+                    ]
+                    for s in required:
+                        if s not in gs:
+                            warn(f"Scope MANCANTE nel token: {s} "
+                                 f"→ cancella {manager.credentials_file.name} e ri-esegui")
+                else:
+                    info("Scope token non disponibili (token pre-esistente) "
+                         "— cancella .zoho_credentials.json e ri-esegui se hai problemi di permesso")
             except Exception as e:
                 err(f"AuthManager: {e}")
                 sys.exit(1)
