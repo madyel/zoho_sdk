@@ -127,50 +127,55 @@ def _normalize_user_report(raw: Any) -> Dict[str, Any]:
     """
     Normalizza la risposta di ``attendance/getUserReport`` (REST API).
 
-    Risposta getUserReport::
+    La risposta reale è un **flat dict** keyed by date (yyyy-MM-dd)::
 
         {
-          "result": [
-            {
-              "attendanceDetails": {"2026-03-01": {"Status": "Present", "TotalHours": "08:30"}},
-              "employeeDetails": {"erecno": "439215000007867001"}
-            }
-          ]
+          "2026-03-21": {
+            "Status": "Fine settimana",
+            "TotalHours": "00:00",
+            "ShiftStartTime": "09:00",
+            "ShiftEndTime": "18:00",
+            ...
+          },
+          "2026-03-20": { ... }
         }
 
     Restituisce il formato interno canonico con dayList keyed by dd/MM/yyyy.
     """
-    if isinstance(raw, dict) and "result" in raw:
-        records = raw["result"]
-        if not records:
-            return {"dayList": {}, "userDetails": {}, "_source": "rest", "_raw": raw}
-        first    = records[0]
-        employee = first.get("employeeDetails", {})
-        attend   = first.get("attendanceDetails", {})
+    if not isinstance(raw, dict):
+        return {"dayList": {}, "userDetails": {}, "_source": "rest", "_raw": raw}
 
-        day_list: Dict[str, Any] = {}
-        for date_key, day in attend.items():
-            try:
-                d = datetime.strptime(date_key, "%Y-%m-%d")
-                fmt_key = d.strftime("%d/%m/%Y")
-            except ValueError:
-                fmt_key = date_key
+    # Errore esplicito
+    if "response" in raw and raw.get("response") == "failure":
+        return {"dayList": {}, "userDetails": {}, "_source": "rest", "_raw": raw}
 
-            day_list[fmt_key] = {
-                "status": day.get("Status", ""),
-                "tHrs":   day.get("TotalHours", "00:00"),
-                "ldate":  fmt_key,
-                **day,
-            }
+    # Formato flat dict (chiavi yyyy-MM-dd → entry giorno)
+    day_list: Dict[str, Any] = {}
+    for date_key, day in raw.items():
+        if not isinstance(day, dict):
+            continue
+        # Riconosce solo entry con almeno "Status" o "TotalHours"
+        if "Status" not in day and "TotalHours" not in day:
+            continue
+        try:
+            d = datetime.strptime(date_key, "%Y-%m-%d")
+            fmt_key = d.strftime("%d/%m/%Y")
+        except ValueError:
+            fmt_key = date_key
 
-        return {
-            "dayList":     day_list,
-            "userDetails": {"eNo": employee.get("erecno", ""), **employee},
-            "_source":     "rest",
-            "_raw":        raw,
+        day_list[fmt_key] = {
+            "status": day.get("Status", ""),
+            "tHrs":   day.get("TotalHours", "00:00"),
+            "ldate":  fmt_key,
+            **day,
         }
 
-    return {"dayList": {}, "userDetails": {}, "_source": "rest", "_raw": raw}
+    return {
+        "dayList":     day_list,
+        "userDetails": {},   # getUserReport non include eNo
+        "_source":     "rest",
+        "_raw":        raw,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +225,9 @@ class PeopleAttendanceAPI:
         """
         Recupera presenze via endpoint interno AttendanceViewAction.zp.
         Restituisce None se SERVICE_URL non è configurato.
+
+        Prova prima senza userId (utente corrente), poi con userId=employee_id
+        se la prima chiamata fallisce o restituisce "Invalid User".
         """
         base = self._web_base_url()
         if not base:
@@ -227,14 +235,27 @@ class PeopleAttendanceAPI:
 
         first_day = date(year, month, 1)
         last_day  = date(year, month, calendar.monthrange(year, month)[1])
-        url = f"{base}/AttendanceViewAction.zp"
-        params = {
-            "userId":     employee_id,
-            "dateRange":  f"{first_day.strftime('%d/%m/%Y')},{last_day.strftime('%d/%m/%Y')}",
-            "dateFormat": "dd/MM/yyyy",
-        }
-        raw = self._client.get_absolute(url, params=params)
-        return _normalize_web_response(raw)
+        url       = f"{base}/AttendanceViewAction.zp"
+        dr        = f"{first_day.strftime('%d/%m/%Y')},{last_day.strftime('%d/%m/%Y')}"
+
+        for params in [
+            # 1. Senza userId → utente del token OAuth
+            {"dateRange": dr, "dateFormat": "dd/MM/yyyy"},
+            # 2. Con userId esplicito (erecno numerico)
+            {"userId": employee_id, "dateRange": dr, "dateFormat": "dd/MM/yyyy"},
+        ]:
+            try:
+                raw = self._client.get_absolute(url, params=params)
+            except Exception:
+                continue
+
+            if isinstance(raw, dict):
+                if raw.get("error") or raw.get("response") == "failure":
+                    continue
+                if "dayList" in raw:
+                    return _normalize_web_response(raw)
+
+        return None
 
     # ------------------------------------------------------------------
     # Lettura presenze – REST API (getUserReport)
@@ -246,18 +267,33 @@ class PeopleAttendanceAPI:
         month: int,
         year: int,
     ) -> Dict[str, Any]:
-        """Recupera presenze via REST API attendance/getUserReport."""
+        """
+        Recupera presenze via REST API attendance/getUserReport.
+
+        Prova prima senza empId (utente corrente del token OAuth),
+        poi con empId=employee_id se la prima chiamata non restituisce dati.
+        """
         first_day = date(year, month, 1)
         last_day  = date(year, month, calendar.monthrange(year, month)[1])
+        sdate     = first_day.strftime("%d/%m/%Y")
+        edate     = last_day.strftime("%d/%m/%Y")
 
-        params = self._client.people_params({
-            "empId":      employee_id,
-            "sdate":      first_day.strftime("%d/%m/%Y"),
-            "edate":      last_day.strftime("%d/%m/%Y"),
+        base_params = self._client.people_params({
+            "sdate":      sdate,
+            "edate":      edate,
             "dateFormat": "dd/MM/yyyy",
         })
-        raw = self._client.get("attendance/getUserReport", params=params)
-        return _normalize_user_report(raw)
+
+        # 1. Senza empId → restituisce dati dell'utente autenticato
+        raw = self._client.get("attendance/getUserReport", params=base_params)
+        result = _normalize_user_report(raw)
+        if result.get("dayList"):
+            return result
+
+        # 2. Con empId esplicito
+        params_with_id = {**base_params, "empId": employee_id}
+        raw2   = self._client.get("attendance/getUserReport", params=params_with_id)
+        return _normalize_user_report(raw2)
 
     # ------------------------------------------------------------------
     # Interfaccia pubblica – lettura
@@ -471,30 +507,48 @@ class PeopleAttendanceAPI:
     # Helper: giorni assenti dal dayList
     # ------------------------------------------------------------------
 
+    # Status che indicano "giorno non lavorativo" — da saltare
+    # Zoho People può restituire status in italiano o inglese
+    _SKIP_STATUSES = frozenset({
+        # Inglese
+        "Weekend", "Holiday", "Leave", "Present",
+        # Italiano
+        "Fine settimana", "Festività", "Ferie", "Presente",
+        "Permesso retribuito", "Malattia",
+    })
+
+    # Status che indicano "assente" (da registrare)
+    _ABSENT_STATUSES = frozenset({
+        "Absent", "Assente",
+    })
+
     @staticmethod
     def absent_days_from_daylist(day_list: Dict[str, Any]) -> List[str]:
         """
         Restituisce le date assenti/vuote dal dayList di get_monthly().
 
         Un giorno è "assente" se:
-        - status == "Absent" (esplicitamente segnato assente), oppure
-        - status == "" (non ancora registrato, non weekend, non festivo)
-          E tHrs == "00:00"
+        - status è "Absent" / "Assente" (esplicitamente segnato assente), oppure
+        - status è "" (non ancora registrato) e tHrs == "00:00"
 
-        Vengono esclusi automaticamente i giorni con status "Weekend" o "Holiday".
+        Vengono esclusi i giorni Weekend, Holiday, Leave (anche in italiano).
 
         Returns
         -------
         list[str]  Date in formato dd/MM/yyyy (dal campo ldate).
         """
-        absent = []
-        for date_key, day in day_list.items():
-            status = day.get("status", "")
-            t_hrs  = day.get("tHrs", "00:00")
-            ldate  = day.get("ldate", date_key)
+        skip    = PeopleAttendanceAPI._SKIP_STATUSES
+        absent  = PeopleAttendanceAPI._ABSENT_STATUSES
+        result  = []
 
-            if status in ("Weekend", "Holiday", "Leave"):
+        for date_key, day in day_list.items():
+            status = day.get("status", day.get("Status", ""))
+            t_hrs  = day.get("tHrs",   day.get("TotalHours", "00:00"))
+            ldate  = day.get("ldate",  date_key)
+
+            if status in skip:
                 continue
-            if status == "Absent" or (status == "" and t_hrs == "00:00"):
-                absent.append(ldate)
-        return absent
+            if status in absent or (status == "" and t_hrs == "00:00"):
+                result.append(ldate)
+
+        return result

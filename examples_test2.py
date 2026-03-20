@@ -368,16 +368,19 @@ def example_06_attendance_monthly():
 
         user = result.get("userDetails", {})
         if user:
-            info(f"Dipendente: {user.get('firstName', user.get('first name',''))} "
-                 f"{user.get('lastName', user.get('last name',''))}  "
-                 f"eNo={user.get('eNo','?')}")
+            info(f"Dipendente: {user.get('fName', user.get('firstName', user.get('first name','')))} "
+                 f"  eNo={user.get('eNo','N/A')}  source={result.get('_source','?')}")
 
         day_list = result.get("dayList", {})
         if day_list:
-            present = sum(1 for d in day_list.values() if d.get("status") == "Present")
-            absent  = sum(1 for d in day_list.values()
-                          if d.get("status") in ("Absent", "") and d.get("tHrs") == "00:00")
-            ok(f"Giorni nel mese: {len(day_list)}  |  Presenti: {present}  |  Assenti: {absent}")
+            from zoho_vertical_sdk.attendance import PeopleAttendanceAPI as _A
+            skip_s  = _A._SKIP_STATUSES
+            absent_s = _A._ABSENT_STATUSES
+            present  = sum(1 for d in day_list.values()
+                           if d.get("status") not in skip_s and d.get("tHrs","00:00") != "00:00")
+            absent   = len(_A.absent_days_from_daylist(day_list))
+            weekend  = sum(1 for d in day_list.values() if d.get("status") in ("Weekend","Fine settimana"))
+            ok(f"Giorni: {len(day_list)}  |  Presenti: {present}  |  Assenti: {absent}  |  Weekend: {weekend}")
 
             info("Primi 5 giorni:")
             for date_key, day in list(day_list.items())[:5]:
