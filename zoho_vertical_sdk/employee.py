@@ -76,15 +76,16 @@ class PeopleEmployeeAPI:
 
     def _get_tree_web(self, employee_id: str = "") -> Optional[Dict[str, Any]]:
         """
-        Recupera l'albero dipendenti via endpoint interno ``peopleAction.zp``.
+        Recupera l'albero dipendenti.
 
-        Equivale a::
+        Prova in ordine:
 
-            POST /{org}/peopleAction.zp
-                 mode=EMPLOYEE_TREE  isint=true  erecno=<eNo>
+        1. GET ``/{org}/v5/tree/employee?mode=EMPLOYEE_TREE`` (nuovo endpoint REST)
+        2. POST ``/{org}/zp/peopleAction.zp``  mode=EMPLOYEE_TREE  (legacy)
+        3. POST ``/{org}/peopleAction.zp``      mode=EMPLOYEE_TREE  (legacy alt)
 
         Restituisce None se SERVICE_URL non è configurato.
-        Risposta attesa::
+        Risposta attesa (entrambe le varianti)::
 
             {
               "users": {
@@ -99,22 +100,38 @@ class PeopleEmployeeAPI:
         if not base:
             return None
 
-        # Zoho People espone peopleAction.zp sotto /{org}/zp/peopleAction.zp,
-        # ma alcune configurazioni lo hanno direttamente sotto /{org}/peopleAction.zp.
-        # Proviamo entrambi i path.
-        url_candidates = [
+        last_exc: Optional[Exception] = None
+
+        # ------------------------------------------------------------------
+        # 1. Nuovo endpoint REST v5 (GET con query string)
+        # ------------------------------------------------------------------
+        v5_params: Dict[str, str] = {"mode": "EMPLOYEE_TREE"}
+        if employee_id:
+            v5_params["erecno"] = employee_id
+        v5_url = f"{base}/v5/tree/employee"
+        try:
+            raw = self._client.get_absolute(v5_url, params=v5_params)
+            if isinstance(raw, dict) and "users" in raw:
+                return raw
+        except ZohoAPIError as exc:
+            last_exc = exc
+        except Exception as exc:
+            last_exc = exc
+
+        # ------------------------------------------------------------------
+        # 2. Endpoint legacy peopleAction.zp (POST form-encoded, richiede
+        #    cookie+CSRF in assenza di OAuth — spesso 404 con bearer token)
+        # ------------------------------------------------------------------
+        legacy_urls = [
             f"{base}/zp/peopleAction.zp",
             f"{base}/peopleAction.zp",
         ]
-
-        body_variants = [{"mode": "EMPLOYEE_TREE", "isint": "true"}]
+        body_base = {"mode": "EMPLOYEE_TREE", "isint": "true"}
+        body_variants = [body_base]
         if employee_id:
-            body_variants.append(
-                {"mode": "EMPLOYEE_TREE", "isint": "true", "erecno": employee_id}
-            )
+            body_variants.append({**body_base, "erecno": employee_id})
 
-        last_exc: Optional[Exception] = None
-        for url in url_candidates:
+        for url in legacy_urls:
             for data in body_variants:
                 try:
                     raw = self._client.form_post_absolute(url, data=data)
@@ -129,7 +146,8 @@ class PeopleEmployeeAPI:
 
         if last_exc is not None:
             raise ZohoAPIError(
-                f"peopleAction.zp non raggiungibile (provati {url_candidates}): {last_exc}"
+                f"endpoint albero non raggiungibile "
+                f"(v5={v5_url}, legacy={legacy_urls}): {last_exc}"
             ) from last_exc
         return None
 
