@@ -191,16 +191,16 @@ def example_02_employee_list():
             else:
                 print(f"    • {e}")
     except ZohoAPIError as e:
-        err(f"Lista dipendenti: {e.message}")
+        err(f"Lista dipendenti: {e}")
         info("Provo path alternativi per trovare l'endpoint corretto:")
-        for alt_path in ["employee", "forms/P_Employee/getRecords", "v2/employee"]:
+        for alt_path in ["employee", "forms/P_Employee/getRecords", "forms/P_EmployeeView/getRecords", "v2/employee"]:
             try:
                 raw = client.get(alt_path)
                 ok(f"  ✅  Funziona: /people/api/{alt_path}")
                 dump(f"  risposta", raw)
                 break
             except ZohoAPIError as ex2:
-                info(f"  ❌  /people/api/{alt_path} → HTTP {ex2.status_code}")
+                info(f"  ❌  /people/api/{alt_path} → {ex2}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -227,7 +227,7 @@ def example_03_employee_search():
         if len(results) > 3:
             info(f"  … e altri {len(results) - 3}")
     except ZohoAPIError as e:
-        err(f"Ricerca: {e.message}")
+        err(f"Ricerca: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -246,7 +246,7 @@ def example_04_employee_get():
         ok(f"Risposta ricevuta")
         dump("employee.get()", data)
     except ZohoAPIError as e:
-        err(f"Get employee: {e.message}")
+        err(f"Get employee: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -269,7 +269,7 @@ def example_05_employee_tree():
         ok("Albero ricevuto")
         dump("employee.get_tree()", tree)
     except ZohoAPIError as e:
-        err(f"Albero: {e.message}")
+        err(f"Albero: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -293,6 +293,15 @@ def example_06_attendance_monthly():
 
         # Gestisci sia dict che list (il formato varia per versione API)
         if isinstance(result, list):
+            # Controlla se è un errore di permesso restituito come lista
+            if result and isinstance(result[0], dict) and result[0].get("response") == "failure":
+                msg = result[0].get("msg", "?")
+                err(f"Zoho People ha rifiutato la richiesta: '{msg}'")
+                if "Permission" in msg:
+                    info("Causa: il ruolo dell'utente API non ha accesso alle presenze.")
+                    info("Soluzione: Zoho People Admin → Settings → Roles → abilita")
+                    info("           la visualizzazione delle presenze via API.")
+                return
             ok(f"Risposta è una lista con {len(result)} elementi")
             info("Primi 2 elementi:")
             for item in result[:2]:
@@ -321,7 +330,7 @@ def example_06_attendance_monthly():
             warn("dayList vuoto o non disponibile")
 
     except ZohoAPIError as e:
-        err(f"get_monthly: {e.message}")
+        err(f"get_monthly: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -339,8 +348,10 @@ def example_07_attendance_absent_days():
         result   = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
 
         if isinstance(result, list):
-            warn("Risposta come lista — vedi sezione 6 per il formato raw")
-            skip("dayList non disponibile in questo formato di risposta")
+            if result and isinstance(result[0], dict) and result[0].get("response") == "failure":
+                skip(f"Attendance API: '{result[0].get('msg','?')}' — vedi sezione 6")
+            else:
+                skip("dayList non disponibile in questo formato di risposta")
             return
 
         day_list = result.get("dayList", {})
@@ -359,7 +370,7 @@ def example_07_attendance_absent_days():
             info(f"  … e altri {len(absent) - 10}")
 
     except ZohoAPIError as e:
-        err(f"Giorni assenti: {e.message}")
+        err(f"Giorni assenti: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -407,7 +418,7 @@ def example_09_attendance_bulk():
     try:
         result = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
     except ZohoAPIError as e:
-        err(f"get_monthly: {e.message}")
+        err(f"get_monthly: {e}")
         return
 
     if isinstance(result, list):
@@ -468,7 +479,7 @@ def example_10_timesheet_jobs():
         if jobs:
             info(f"Usa ZOHO_JOB_ID={jobs[0].get('jobId','?')} nel .env per i test successivi")
     except ZohoAPIError as e:
-        err(f"get_jobs: {e.message}")
+        err(f"get_jobs: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -510,7 +521,7 @@ def example_11_timesheet_get():
             info("Nessun giorno di ferie nel periodo")
 
     except ZohoAPIError as e:
-        err(f"timesheet.get: {e.message}")
+        err(f"timesheet.get: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -581,7 +592,7 @@ def example_13_timesheet_add():
         result = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
         eNo    = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID)
     except ZohoAPIError as e:
-        err(f"get_monthly: {e.message}")
+        err(f"get_monthly: {e}")
         return
 
     ok(f"eNo: {eNo}")
@@ -629,7 +640,7 @@ def example_14_timesheet_add_monthly():
         result = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
         eNo    = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID)
     except ZohoAPIError as e:
-        err(f"get_monthly: {e.message}")
+        err(f"get_monthly: {e}")
         return
 
     info(f"Parametri che verrebbero usati:")

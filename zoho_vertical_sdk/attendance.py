@@ -105,7 +105,7 @@ class PeopleAttendanceAPI:
         dict  con chiavi: eNo, empId, name, department, ...
         """
         params = {"userId": employee_id}
-        return self._client.get("forms/json/P_EmployeeView/getRecord", params=params)
+        return self._client.get("forms/P_EmployeeView/getRecord", params=params)
 
     # ------------------------------------------------------------------
     # Lettura presenze

@@ -21,6 +21,11 @@ class ZohoAPIError(Exception):
         self.error_code = error_code
         self.details = details or {}
 
+    def __str__(self) -> str:
+        if self.status_code:
+            return f"[HTTP {self.status_code}] {self.message}"
+        return self.message
+
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("

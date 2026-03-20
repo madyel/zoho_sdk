@@ -92,7 +92,7 @@ class PeopleEmployeeAPI:
             params["searchField"] = search_field
 
         data = self._client.get(
-            "forms/json/P_EmployeeView/getRecords",
+            "forms/P_EmployeeView/getRecords",
             params=params,
         )
         # La risposta di Zoho People è {"response": {"result": [...]}}
