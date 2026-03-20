@@ -99,33 +99,37 @@ class PeopleEmployeeAPI:
         if not base:
             return None
 
-        url = f"{base}/peopleAction.zp"
-
-        candidates = [
-            # 1. Senza erecno → utente corrente del token OAuth
-            {"mode": "EMPLOYEE_TREE", "isint": "true"},
+        # Zoho People espone peopleAction.zp sotto /{org}/zp/peopleAction.zp,
+        # ma alcune configurazioni lo hanno direttamente sotto /{org}/peopleAction.zp.
+        # Proviamo entrambi i path.
+        url_candidates = [
+            f"{base}/zp/peopleAction.zp",
+            f"{base}/peopleAction.zp",
         ]
+
+        body_variants = [{"mode": "EMPLOYEE_TREE", "isint": "true"}]
         if employee_id:
-            candidates.append(
+            body_variants.append(
                 {"mode": "EMPLOYEE_TREE", "isint": "true", "erecno": employee_id}
             )
 
         last_exc: Optional[Exception] = None
-        for data in candidates:
-            try:
-                raw = self._client.form_post_absolute(url, data=data)
-            except ZohoAPIError as exc:
-                last_exc = exc
-                continue
-            except Exception as exc:
-                last_exc = exc
-                continue
-            if isinstance(raw, dict) and "users" in raw:
-                return raw
+        for url in url_candidates:
+            for data in body_variants:
+                try:
+                    raw = self._client.form_post_absolute(url, data=data)
+                except ZohoAPIError as exc:
+                    last_exc = exc
+                    continue
+                except Exception as exc:
+                    last_exc = exc
+                    continue
+                if isinstance(raw, dict) and "users" in raw:
+                    return raw
 
         if last_exc is not None:
             raise ZohoAPIError(
-                f"peopleAction.zp fallito per tutti i candidati: {last_exc}"
+                f"peopleAction.zp non raggiungibile (provati {url_candidates}): {last_exc}"
             ) from last_exc
         return None
 
