@@ -36,6 +36,35 @@ from .attendance import _org_from_service_url
 from .exceptions import ZohoAPIError
 
 
+def _extract_user_list(raw: Dict[str, Any]) -> List[Any]:
+    """
+    Estrae la lista dipendenti da una risposta grezza, indipendentemente
+    dal formato (legacy peopleAction.zp oppure nuovo v5).
+
+    Formati gestiti:
+      Legacy:  {"users": {"userList": [[...], ...]}}
+      v5 dict: {"data": [...]}
+      v5 list: {"response": {"result": [...]}}
+      Fallback: primo valore che sia una lista nell'intera struttura
+    """
+    # Legacy
+    if "users" in raw:
+        return raw["users"].get("userList", [])
+    # v5 candidati
+    for key in ("data", "employees", "result", "records"):
+        val = raw.get(key)
+        if isinstance(val, list):
+            return val
+    # Annidato un livello (es. {"response": {"data": [...]}})
+    for val in raw.values():
+        if isinstance(val, dict):
+            for key in ("data", "employees", "result", "records", "userList"):
+                inner = val.get(key)
+                if isinstance(inner, list):
+                    return inner
+    return []
+
+
 class PeopleEmployeeAPI:
     """
     Wrapper per le API Zoho People Employee.
@@ -103,24 +132,39 @@ class PeopleEmployeeAPI:
         last_exc: Optional[Exception] = None
 
         # ------------------------------------------------------------------
-        # 1. Nuovo endpoint REST v5 (GET con query string)
+        # 1. Nuovo endpoint REST v5 — prova GET, poi POST; con e senza /zp/
+        #    Il formato risposta potrebbe differire dal legacy peopleAction.zp
         # ------------------------------------------------------------------
-        v5_params: Dict[str, str] = {"mode": "EMPLOYEE_TREE"}
-        if employee_id:
-            v5_params["erecno"] = employee_id
-        v5_url = f"{base}/v5/tree/employee"
-        try:
-            raw = self._client.get_absolute(v5_url, params=v5_params)
-            if isinstance(raw, dict) and "users" in raw:
-                return raw
-        except ZohoAPIError as exc:
-            last_exc = exc
-        except Exception as exc:
-            last_exc = exc
+        v5_paths = [
+            f"{base}/v5/tree/employee",
+            f"{base}/zp/v5/tree/employee",
+        ]
+        v5_params_base: Dict[str, str] = {"mode": "EMPLOYEE_TREE"}
+        v5_params_with_id = {**v5_params_base, "erecno": employee_id} if employee_id else v5_params_base
+
+        for v5_url in v5_paths:
+            for params in ([v5_params_with_id, v5_params_base] if employee_id else [v5_params_base]):
+                # GET
+                try:
+                    raw = self._client.get_absolute(v5_url, params=params)
+                    if isinstance(raw, dict):
+                        return raw  # accetta qualunque formato v5
+                except ZohoAPIError as exc:
+                    last_exc = exc
+                except Exception as exc:
+                    last_exc = exc
+                # POST form-encoded (stesso pattern del vecchio .zp)
+                try:
+                    raw = self._client.form_post_absolute(v5_url, data=params)
+                    if isinstance(raw, dict):
+                        return raw
+                except ZohoAPIError as exc:
+                    last_exc = exc
+                except Exception as exc:
+                    last_exc = exc
 
         # ------------------------------------------------------------------
-        # 2. Endpoint legacy peopleAction.zp (POST form-encoded, richiede
-        #    cookie+CSRF in assenza di OAuth — spesso 404 con bearer token)
+        # 2. Endpoint legacy peopleAction.zp (POST form-encoded)
         # ------------------------------------------------------------------
         legacy_urls = [
             f"{base}/zp/peopleAction.zp",
@@ -195,7 +239,7 @@ class PeopleEmployeeAPI:
         if tree is None:
             return []
 
-        user_list = tree.get("users", {}).get("userList", [])
+        user_list = _extract_user_list(tree)
         normalized = self._normalize_list(user_list)
 
         # Filtra per search_value se richiesto (match case-insensitive su nome)
@@ -240,7 +284,7 @@ class PeopleEmployeeAPI:
         # Prima prova direttamente con l'erecno dell'utente specifico
         tree = self._get_tree_web(employee_id)
         if tree:
-            user_list = tree.get("users", {}).get("userList", [])
+            user_list = _extract_user_list(tree)
             normalized = self._normalize_list(user_list)
             for emp in normalized:
                 if emp.get("EmployeeRecordNumber") == employee_id:
@@ -280,14 +324,14 @@ class PeopleEmployeeAPI:
             Con chiave ``"_normalized"`` — lista dizionari normalizzata.
             Se disponibile via web, include anche ``"users"`` originale.
         """
-        # 1. Endpoint interno (richiede cookie+CSRF — non funziona via OAuth)
+        # 1. Endpoint web (v5 REST o legacy peopleAction.zp)
         try:
             raw = self._get_tree_web(employee_id)
             if raw is not None:
-                user_list = raw.get("users", {}).get("userList", [])
+                user_list = _extract_user_list(raw)
                 return {**raw, "_normalized": self._normalize_list(user_list)}
         except ZohoAPIError:
-            pass  # non accessibile via OAuth bearer token → REST API
+            pass  # nessun endpoint disponibile → REST API pubblica
 
         # 2. Fallback: REST API pubblica – lista tutti i dipendenti
         employees = self.list()
