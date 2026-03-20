@@ -15,6 +15,7 @@ Vecchi endpoint web (richiedono cookie + CSRF):
     POST /timesheet.zp             mode=addWeekTimesheet
 
 Nuovi endpoint REST (richiedono solo OAuth token):
+    GET  /people/api/timetracker/getjobs
     GET  /people/api/timetracker/getTimesheetLog
     POST /people/api/timetracker/addtimesheet
 
@@ -53,6 +54,49 @@ class PeopleTimesheetAPI:
 
     def __init__(self, client: "ZohoVerticalClient"):
         self._client = client
+
+    # ------------------------------------------------------------------
+    # Jobs
+    # ------------------------------------------------------------------
+
+    def get_jobs(
+        self,
+        employee_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Recupera la lista dei job disponibili per il timetracker.
+
+        Endpoint: GET /people/api/timetracker/getjobs
+
+        Parameters
+        ----------
+        employee_id : str, optional
+            Filtra i job assegnati a un dipendente specifico.
+            Se omesso restituisce tutti i job attivi dell'account.
+
+        Returns
+        -------
+        list[dict]
+            Lista di job, ognuno con almeno:
+            ``{"jobId": "...", "jobName": "...", "clientName": "..."}``
+
+        Example
+        -------
+        >>> jobs = client.timesheet.get_jobs()
+        >>> for j in jobs:
+        ...     print(j["jobId"], j["jobName"])
+        """
+        params: Dict[str, Any] = {}
+        if employee_id:
+            params["userId"] = employee_id
+
+        data = self._client.get("timetracker/getjobs", params=params or None)
+        # La risposta può essere {"response": {"result": [...]}} oppure {"data": [...]}
+        if "response" in data:
+            result = data["response"].get("result", [])
+        else:
+            result = data.get("data", data.get("jobs", []))
+        return result if isinstance(result, list) else []
 
     # ------------------------------------------------------------------
     # Lettura timesheet
