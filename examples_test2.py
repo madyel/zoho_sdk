@@ -184,14 +184,23 @@ def example_02_employee_list():
         ok(f"Dipendenti ricevuti: {len(employees)}")
         for e in employees[:5]:
             if isinstance(e, dict):
-                name  = e.get("fullName") or e.get("name", "?")
+                name   = e.get("fullName") or e.get("name", "?")
                 emp_id = e.get("eNo") or e.get("empId", "?")
-                email = e.get("emailId") or e.get("email", "")
+                email  = e.get("emailId") or e.get("email", "")
                 print(f"    • [{emp_id}]  {name:30}  {email}")
             else:
                 print(f"    • {e}")
     except ZohoAPIError as e:
         err(f"Lista dipendenti: {e.message}")
+        info("Provo path alternativi per trovare l'endpoint corretto:")
+        for alt_path in ["employee", "forms/P_Employee/getRecords", "v2/employee"]:
+            try:
+                raw = client.get(alt_path)
+                ok(f"  ✅  Funziona: /people/api/{alt_path}")
+                dump(f"  risposta", raw)
+                break
+            except ZohoAPIError as ex2:
+                info(f"  ❌  /people/api/{alt_path} → HTTP {ex2.status_code}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -278,6 +287,18 @@ def example_06_attendance_monthly():
         result = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
         ok("Risposta ricevuta")
 
+        # Stampa struttura raw per capire il formato reale dell'API
+        info("Struttura risposta (raw, troncata):")
+        dump("get_monthly()", result)
+
+        # Gestisci sia dict che list (il formato varia per versione API)
+        if isinstance(result, list):
+            ok(f"Risposta è una lista con {len(result)} elementi")
+            info("Primi 2 elementi:")
+            for item in result[:2]:
+                dump("  item", item)
+            return
+
         user = result.get("userDetails", {})
         if user:
             info(f"Dipendente: {user.get('firstName','')} {user.get('lastName','')}  "
@@ -316,6 +337,12 @@ def example_07_attendance_absent_days():
 
     try:
         result   = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
+
+        if isinstance(result, list):
+            warn("Risposta come lista — vedi sezione 6 per il formato raw")
+            skip("dayList non disponibile in questo formato di risposta")
+            return
+
         day_list = result.get("dayList", {})
 
         if not day_list:
@@ -378,12 +405,18 @@ def example_09_attendance_bulk():
         return
 
     try:
-        result   = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
-        day_list = result.get("dayList", {})
-        eNo      = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID)
+        result = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
     except ZohoAPIError as e:
         err(f"get_monthly: {e.message}")
         return
+
+    if isinstance(result, list):
+        warn("Risposta come lista — vedi sezione 6 per il formato raw")
+        skip("dayList non disponibile in questo formato di risposta")
+        return
+
+    day_list = result.get("dayList", {})
+    eNo      = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID)
 
     if not day_list:
         skip("dayList vuoto")
@@ -450,8 +483,9 @@ def example_11_timesheet_get():
         return
 
     try:
-        result   = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
-        eNo      = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID)
+        result = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
+        eNo    = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID) \
+                 if isinstance(result, dict) else EMPLOYEE_ID
 
         first = date(TEST_YEAR, TEST_MONTH, 1).strftime("%d/%m/%Y")
         import calendar
