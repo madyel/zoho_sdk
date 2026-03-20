@@ -353,7 +353,7 @@ class ZohoAuthManager:
     def _first_login_flow(self) -> ZohoCredentials:
         """
         Guida l'utente passo-passo a ottenere il refresh token.
-        Tutto avviene nel terminale, nessun browser server necessario.
+        Tutto avviene nel terminale, nessun server browser necessario.
         """
         print()
         print("═" * 60)
