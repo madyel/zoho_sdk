@@ -376,15 +376,117 @@ with ZohoVerticalClient(auth=auth, api_domain="https://zohoverticalapis.com") as
 
 ## OAuth Scopes Reference
 
-| Capability        | Scope                                   |
-|-------------------|-----------------------------------------|
-| Read modules      | `ZohoVertical.settings.modules.READ`    |
-| Read fields       | `ZohoVertical.settings.fields.READ`     |
-| Read records      | `ZohoVertical.modules.ALL`              |
-| Create/Update     | `ZohoVertical.modules.ALL`              |
-| Bulk Read         | `ZohoVertical.bulk.READ`                |
-| Bulk Write        | `ZohoVertical.bulk.CREATE`              |
-| Notifications     | `ZohoVertical.modules.ALL`              |
+Format: `ZohoVertical.<scope_name>.<operation>`
+Operations: `ALL` · `READ` · `CREATE` · `UPDATE` · `DELETE`
+
+### Modules (`ZohoVertical.modules.*`)
+
+| Scope | Description |
+|-------|-------------|
+| `ZohoVertical.modules.ALL` | Full access (CRUD) to all modules |
+| `ZohoVertical.modules.READ` | Read records from all modules |
+| `ZohoVertical.modules.CREATE` | Create records in all modules |
+| `ZohoVertical.modules.UPDATE` | Update records in all modules |
+| `ZohoVertical.modules.DELETE` | Delete records from all modules |
+| `ZohoVertical.modules.<ModuleName>.ALL` | Full access to a specific module (e.g. `modules.Leads.ALL`) |
+| `ZohoVertical.modules.<ModuleName>.READ` | Read-only access to a specific module |
+| `ZohoVertical.modules.<ModuleName>.CREATE` | Create records in a specific module |
+| `ZohoVertical.modules.<ModuleName>.UPDATE` | Update records in a specific module |
+| `ZohoVertical.modules.<ModuleName>.DELETE` | Delete records in a specific module |
+
+### Settings (`ZohoVertical.settings.*`)
+
+| Scope | Description |
+|-------|-------------|
+| `ZohoVertical.settings.ALL` | Full access to all settings |
+| `ZohoVertical.settings.modules.READ` | Read module metadata (list, schema) |
+| `ZohoVertical.settings.modules.CREATE` | Create custom modules |
+| `ZohoVertical.settings.modules.UPDATE` | Update module configuration |
+| `ZohoVertical.settings.modules.DELETE` | Delete custom modules |
+| `ZohoVertical.settings.fields.READ` | Read field definitions |
+| `ZohoVertical.settings.fields.CREATE` | Create custom fields |
+| `ZohoVertical.settings.fields.UPDATE` | Update field configuration |
+| `ZohoVertical.settings.fields.DELETE` | Delete custom fields |
+| `ZohoVertical.settings.layouts.READ` | Read layout definitions |
+| `ZohoVertical.settings.layouts.CREATE` | Create layouts |
+| `ZohoVertical.settings.layouts.UPDATE` | Update layouts |
+| `ZohoVertical.settings.layouts.DELETE` | Delete layouts |
+| `ZohoVertical.settings.custom_views.READ` | Read custom views |
+| `ZohoVertical.settings.custom_views.CREATE` | Create custom views |
+| `ZohoVertical.settings.custom_views.UPDATE` | Update custom views |
+| `ZohoVertical.settings.custom_views.DELETE` | Delete custom views |
+| `ZohoVertical.settings.related_lists.READ` | Read related lists |
+| `ZohoVertical.settings.related_lists.UPDATE` | Update related lists |
+| `ZohoVertical.settings.roles.READ` | Read roles |
+| `ZohoVertical.settings.roles.CREATE` | Create roles |
+| `ZohoVertical.settings.roles.UPDATE` | Update roles |
+| `ZohoVertical.settings.roles.DELETE` | Delete roles |
+| `ZohoVertical.settings.profiles.READ` | Read profiles |
+| `ZohoVertical.settings.profiles.CREATE` | Create profiles |
+| `ZohoVertical.settings.profiles.UPDATE` | Update profiles |
+| `ZohoVertical.settings.profiles.DELETE` | Delete profiles |
+| `ZohoVertical.settings.territories.READ` | Read territories |
+| `ZohoVertical.settings.territories.CREATE` | Create territories |
+| `ZohoVertical.settings.territories.UPDATE` | Update territories |
+| `ZohoVertical.settings.territories.DELETE` | Delete territories |
+| `ZohoVertical.settings.variables.READ` | Read global variables |
+| `ZohoVertical.settings.variables.CREATE` | Create global variables |
+| `ZohoVertical.settings.variables.UPDATE` | Update global variables |
+| `ZohoVertical.settings.variables.DELETE` | Delete global variables |
+| `ZohoVertical.settings.tags.READ` | Read tags |
+| `ZohoVertical.settings.tags.CREATE` | Create tags |
+| `ZohoVertical.settings.tags.UPDATE` | Update tags |
+| `ZohoVertical.settings.tags.DELETE` | Delete tags |
+| `ZohoVertical.settings.tab_groups.READ` | Read tab groups |
+| `ZohoVertical.settings.tab_groups.UPDATE` | Update tab groups |
+| `ZohoVertical.settings.macros.READ` | Read macros |
+| `ZohoVertical.settings.macros.CREATE` | Create macros |
+| `ZohoVertical.settings.macros.UPDATE` | Update macros |
+| `ZohoVertical.settings.macros.DELETE` | Delete macros |
+| `ZohoVertical.settings.custom_links.READ` | Read custom links |
+| `ZohoVertical.settings.custom_links.CREATE` | Create custom links |
+| `ZohoVertical.settings.custom_links.UPDATE` | Update custom links |
+| `ZohoVertical.settings.custom_links.DELETE` | Delete custom links |
+| `ZohoVertical.settings.custom_buttons.READ` | Read custom buttons |
+| `ZohoVertical.settings.custom_buttons.CREATE` | Create custom buttons |
+| `ZohoVertical.settings.custom_buttons.UPDATE` | Update custom buttons |
+| `ZohoVertical.settings.custom_buttons.DELETE` | Delete custom buttons |
+| `ZohoVertical.settings.currencies.READ` | Read currencies |
+| `ZohoVertical.settings.currencies.CREATE` | Create currencies |
+| `ZohoVertical.settings.currencies.UPDATE` | Update currencies |
+
+### Bulk (`ZohoVertical.bulk.*`)
+
+| Scope | Description |
+|-------|-------------|
+| `ZohoVertical.bulk.ALL` | Full access to bulk read/write APIs |
+| `ZohoVertical.bulk.READ` | Download bulk read job results |
+| `ZohoVertical.bulk.CREATE` | Create bulk read/write jobs |
+| `ZohoVertical.bulk.UPDATE` | Update bulk jobs |
+| `ZohoVertical.bulk.DELETE` | Delete bulk jobs |
+
+### Notifications (`ZohoVertical.notifications.*`)
+
+| Scope | Description |
+|-------|-------------|
+| `ZohoVertical.notifications.ALL` | Full access to notifications |
+| `ZohoVertical.notifications.READ` | List notification channels |
+| `ZohoVertical.notifications.CREATE` | Enable/subscribe notifications |
+| `ZohoVertical.notifications.UPDATE` | Update notification channels |
+| `ZohoVertical.notifications.DELETE` | Disable/delete notifications |
+
+### Recommended scope sets
+
+```
+# Minimum read-only
+ZohoVertical.modules.READ,ZohoVertical.settings.modules.READ,ZohoVertical.settings.fields.READ
+
+# Full access (default for this SDK)
+ZohoVertical.modules.ALL,ZohoVertical.settings.ALL,ZohoVertical.bulk.ALL
+
+# Full access including notifications
+ZohoVertical.modules.ALL,ZohoVertical.settings.ALL,ZohoVertical.bulk.ALL,ZohoVertical.notifications.ALL
+```
 
 ---
 
