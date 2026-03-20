@@ -862,6 +862,22 @@ def main():
                 )
                 client = manager.get_client()
                 ok("Client autenticato via ZohoAuthManager")
+
+                # Mostra scope effettivamente concessi da Zoho
+                gs = getattr(manager._creds, "granted_scope", "") or ""
+                if gs:
+                    info(f"Scope concessi dal token: {gs}")
+                    required = [
+                        "ZohoPeople.attendance.ALL",
+                        "ZohoPeople.timetracker.ALL",
+                    ]
+                    for s in required:
+                        if s not in gs:
+                            warn(f"Scope MANCANTE nel token: {s} "
+                                 f"→ cancella {manager.credentials_file.name} e ri-esegui")
+                else:
+                    info("Scope token non disponibili (token pre-esistente) "
+                         "— cancella .zoho_credentials.json e ri-esegui se hai problemi di permesso")
             except Exception as e:
                 err(f"AuthManager: {e}")
                 sys.exit(1)

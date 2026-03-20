@@ -97,6 +97,9 @@ class ZohoCredentials:
     token_expiry:  float     = 0.0   # timestamp UNIX
     data_centre:   str       = "US"
     scopes:        list      = field(default_factory=lambda: list(DEFAULT_SCOPES))
+    # Scope effettivamente concessi da Zoho nella risposta OAuth
+    # (possono differire da quelli richiesti in scopes)
+    granted_scope: str       = ""
 
     @property
     def api_domain(self) -> str:
@@ -350,6 +353,8 @@ class ZohoAuthManager:
         self._creds.access_token = data["access_token"]
         expires_in = int(data.get("expires_in", 3600))
         self._creds.token_expiry = time.time() + expires_in
+        if data.get("scope"):
+            self._creds.granted_scope = data["scope"]
         self._save_credentials()
         _ok(f"Access token rinnovato (valido per {expires_in // 60} minuti)")
 
@@ -490,10 +495,16 @@ class ZohoAuthManager:
         refresh_token = data["refresh_token"]
         expires_in    = int(data.get("expires_in", 3600))
         token_expiry  = time.time() + expires_in
+        granted_scope = data.get("scope", "")
 
         _ok("Access token e Refresh token ottenuti con successo!")
         _info(f"Access token valido per {expires_in // 60} minuti")
         _info("Refresh token salvato – non scade (finché non lo revochi)")
+        if granted_scope:
+            _info(f"Scope concessi: {granted_scope}")
+            for required in self.scopes:
+                if required not in granted_scope:
+                    _err(f"Scope NON concesso: {required}")
 
         return ZohoCredentials(
             client_id=self.client_id,
@@ -503,6 +514,7 @@ class ZohoAuthManager:
             token_expiry=token_expiry,
             data_centre=dc,
             scopes=list(self.scopes),
+            granted_scope=granted_scope,
         )
 
     # ------------------------------------------------------------------
