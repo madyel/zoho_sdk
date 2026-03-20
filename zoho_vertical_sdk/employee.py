@@ -246,7 +246,10 @@ class PeopleEmployeeAPI:
         """
         Recupera l'albero organizzativo del dipendente.
 
-        Equivale a peopleAction() con mode=EMPLOYEE_TREE del vecchio script.
+        Tenta prima l'endpoint interno ``peopleAction.zp`` (richiede cookie di
+        sessione + CSRF, quindi funziona solo con auth legacy non-OAuth).
+        Se non disponibile, ricade sulla REST API pubblica restituendo la lista
+        completa dei dipendenti come ``_normalized``.
 
         Parameters
         ----------
@@ -256,17 +259,21 @@ class PeopleEmployeeAPI:
         Returns
         -------
         dict
-            Struttura originale ``{"users": {"userList": [[...], ...]}}``
-            con in aggiunta ``"_normalized"`` — lista dizionari normalizzata.
+            Con chiave ``"_normalized"`` — lista dizionari normalizzata.
+            Se disponibile via web, include anche ``"users"`` originale.
         """
-        raw = self._get_tree_web(employee_id)
-        if raw is None:
-            return {}
-        user_list = raw.get("users", {}).get("userList", [])
-        return {
-            **raw,
-            "_normalized": self._normalize_list(user_list),
-        }
+        # 1. Endpoint interno (richiede cookie+CSRF — non funziona via OAuth)
+        try:
+            raw = self._get_tree_web(employee_id)
+            if raw is not None:
+                user_list = raw.get("users", {}).get("userList", [])
+                return {**raw, "_normalized": self._normalize_list(user_list)}
+        except ZohoAPIError:
+            pass  # non accessibile via OAuth bearer token → REST API
+
+        # 2. Fallback: REST API pubblica – lista tutti i dipendenti
+        employees = self.list()
+        return {"_normalized": employees}
 
     # ------------------------------------------------------------------
     # Helper: normalizza la lista per compatibilità con findEmploy()

@@ -265,20 +265,16 @@ def example_05_employee_tree():
         skip("Imposta ZOHO_EMPLOYEE_ID con un eNo reale (es. P-000042)")
         return
 
-    svc = client.service_url or "(non impostato)"
-    info(f"client.service_url = {svc!r}")
-    if not client.service_url:
-        warn("ZOHO_SERVICE_URL non impostato → imposta es. ZOHO_SERVICE_URL=relewanthrm/peopleAction.zp")
-        return
-
     try:
         tree = client.employee.get_tree(EMPLOYEE_ID)
-        if not tree:
-            warn("get_tree() ha restituito {} — nessun dato trovato")
-            return
-        ok("Albero ricevuto")
         normalized = tree.get("_normalized", [])
-        info(f"Dipendenti nell'albero: {len(normalized)}")
+        if not normalized:
+            warn("get_tree() non ha restituito dipendenti")
+            return
+        via_web = "users" in tree
+        source = "peopleAction.zp (cookie)" if via_web else "REST API (OAuth fallback)"
+        ok(f"Albero ricevuto via {source}")
+        info(f"Dipendenti: {len(normalized)}")
         for emp in normalized[:5]:
             print(f"    • [{emp.get('EmployeeRecordNumber','?')}]  "
                   f"{emp.get('SurnameName','?'):35}  {emp.get('EmployID','')}")
