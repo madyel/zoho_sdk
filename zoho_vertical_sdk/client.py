@@ -76,6 +76,7 @@ class ZohoVerticalClient:
         timeout: int = 30,
         max_retries: int = 3,
         retry_backoff: float = 1.0,
+        service_url: str = "",
     ):
         self.auth = auth
         self.api_domain = api_domain.rstrip("/")
@@ -83,6 +84,10 @@ class ZohoVerticalClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_backoff = retry_backoff
+        # Es: "/relewanthrm/zp" — path organizzativo Zoho People.
+        # Se impostato, viene aggiunto come parametro serviceurl+servicename
+        # alle chiamate People API che lo richiedono.
+        self.service_url = service_url.strip()
 
         self._session: Session = requests.Session()
         self._session.headers.update({"Content-Type": "application/json"})
@@ -165,6 +170,32 @@ class ZohoVerticalClient:
         base = f"{self.api_domain}/people/api/"
         # Strip leading slash to avoid double-slash
         return urljoin(base, path.lstrip("/"))
+
+    def people_params(self, extra: Optional[Dict] = None) -> Dict:
+        """
+        Restituisce i parametri di base per le API Zoho People.
+
+        Se ``service_url`` è impostato sul client (es. ``/relewanthrm/zp``),
+        aggiunge automaticamente ``servicename=zohopeople`` e
+        ``serviceurl=<service_url>`` — parametri richiesti da alcune
+        installazioni Zoho People per identificare l'organizzazione.
+
+        Parameters
+        ----------
+        extra : dict, optional
+            Parametri aggiuntivi da unire al risultato.
+
+        Returns
+        -------
+        dict
+        """
+        params: Dict = {}
+        if self.service_url:
+            params["servicename"] = "zohopeople"
+            params["serviceurl"]  = self.service_url
+        if extra:
+            params.update(extra)
+        return params or (extra or {})
 
     # ------------------------------------------------------------------
     # HTTP verbs

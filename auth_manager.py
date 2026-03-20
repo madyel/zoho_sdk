@@ -201,12 +201,15 @@ class ZohoAuthManager:
         credentials_file: Optional[Path] = None,
         scopes: Optional[list] = None,
         data_centre: str = "US",
+        service_url: str = "",
     ):
         self.client_id     = client_id
         self.client_secret = client_secret
         self.credentials_file = credentials_file or DEFAULT_CREDENTIALS_FILE
         self.scopes        = scopes or list(DEFAULT_SCOPES)
         self.data_centre   = data_centre.upper()
+        # Es: "/relewanthrm/zp" — path organizzativo Zoho People
+        self.service_url   = service_url.strip()
         self._creds: Optional[ZohoCredentials] = None
 
     # ------------------------------------------------------------------
@@ -226,6 +229,7 @@ class ZohoAuthManager:
         client_id     = os.getenv("ZOHO_CLIENT_ID", "")
         client_secret = os.getenv("ZOHO_CLIENT_SECRET", "")
         data_centre   = os.getenv("ZOHO_DATA_CENTRE", "US").upper()
+        service_url   = os.getenv("ZOHO_SERVICE_URL", "")
 
         if not client_id or not client_secret:
             raise ZohoAuthError(
@@ -238,6 +242,7 @@ class ZohoAuthManager:
             credentials_file=credentials_file,
             scopes=scopes,
             data_centre=data_centre,
+            service_url=service_url,
         )
 
     # ------------------------------------------------------------------
@@ -285,6 +290,7 @@ class ZohoAuthManager:
             api_domain=self._creds.api_domain,
             max_retries=3,
             retry_backoff=1.0,
+            service_url=self.service_url,
         )
 
     # ------------------------------------------------------------------
