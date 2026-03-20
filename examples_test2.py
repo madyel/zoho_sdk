@@ -892,6 +892,7 @@ def main():
                     client_id=CLIENT_ID,
                     client_secret=CLIENT_SECRET,
                     data_centre=os.getenv("ZOHO_DATA_CENTRE", "US"),
+                    service_url=SERVICE_URL,
                 )
                 client = manager.get_client()
                 ok("Client autenticato via ZohoAuthManager")
