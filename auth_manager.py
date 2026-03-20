@@ -62,9 +62,10 @@ except ImportError:
 
 # Scope di default per timesheet + attendance + metadata
 DEFAULT_SCOPES = [
-    "ZohoVertical.modules.ALL",
-    "ZohoVertical.settings.ALL",
-    "ZohoVertical.bulk.ALL",
+    "ZohoPeople.attendance.ALL",
+    "ZohoPeople.timetracker.ALL",
+    "ZohoPeople.forms.ALL",
+    "ZohoPeople.leave.ALL",
 ]
 
 # Data centre → (api_domain, accounts_url)
