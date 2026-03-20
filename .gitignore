@@ -1,0 +1,47 @@
+# --- Cartelle di dipendenze ---
+node_modules/
+jspm_packages/
+bin/
+obj/
+
+# --- File di configurazione sensibili (CHIAVI API) ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pfx
+*.pem
+appsettings.Development.json
+
+# --- Output di Build ---
+dist/
+build/
+.next/
+out/
+bin/
+Release/
+publish/
+
+# --- Log e Debug ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.log
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.doccache
+
+# --- Sistema Operativo ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Database locali e temporanei ---
+*.db
+*.sqlite
+.openclaw/
