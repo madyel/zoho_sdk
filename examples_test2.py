@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
 ═══════════════════════════════════════════════════════════════════════════════
-  examples_test2.py  –  Zoho People SDK  –  Attendance / Timesheet / Employee
+  examples_test2.py  –  Zoho People SDK  –  Attendance / Timesheet / Employee / Leave
 ═══════════════════════════════════════════════════════════════════════════════
 
-Copre le nuove API specifiche di Zoho People:
+Copre le nuove API specifiche di Zoho People (v3):
 
   1.  Helpers orario  – time_to_seconds / seconds_to_time
   2.  Employee – lista dipendenti
   3.  Employee – cerca dipendente (findEmploy)
   4.  Employee – dettaglio singolo dipendente
   5.  Employee – albero organizzativo
-  6.  Attendance – presenze mensili (attendanceViewAction)
+  6.  Attendance – presenze mensili (getUserReport)
   7.  Attendance – giorni assenti del mese
   8.  Attendance – registra presenza singola (add)
   9.  Attendance – registra presenza bulk (sendAttendance)
@@ -20,7 +20,8 @@ Copre le nuove API specifiche di Zoho People:
   12. Timesheet  – costruisci logParams (build_log_params)
   13. Timesheet  – invia timesheet (sendTimesheet)
   14. Timesheet  – flusso completo mese (add_monthly)
-  15. Gestione errori People API
+  15. Leave      – richieste ferie e saldo residuo
+  16. Gestione errori People API
 
 Utilizzo:
     python examples_test2.py                    # esegui tutto
@@ -28,6 +29,7 @@ Utilizzo:
     python examples_test2.py --section employee # sezioni 2-5
     python examples_test2.py --section attend   # sezioni 6-9
     python examples_test2.py --section time     # sezioni 10-14
+    python examples_test2.py --section leave    # sezione 15
     python examples_test2.py --list             # mostra tutte le sezioni
 
 Variabili .env richieste (minimo):
@@ -75,6 +77,7 @@ try:
     )
     from zoho_vertical_sdk.exceptions import ZohoAPIError, ZohoAuthError
     from zoho_vertical_sdk.timesheet import PeopleTimesheetAPI
+    from zoho_vertical_sdk.attendance import _to_zoho_date
     from auth_manager import ZohoAuthManager
 except ImportError as e:
     print(f"❌  Impossibile importare: {e}")
@@ -285,14 +288,16 @@ def example_05_employee_tree():
 
 
 def _attendance_diagnose(cl, month: int, year: int, employee_id: str) -> None:
-    """Prova varianti di endpoint e parametri per l'attendance API."""
+    """Prova varianti di endpoint e parametri per l'attendance API v3."""
     import calendar as _cal
-    from zoho_vertical_sdk.attendance import _org_from_service_url
-    first = date(year, month, 1).strftime("%d/%m/%Y")
-    last  = date(year, month, _cal.monthrange(year, month)[1]).strftime("%d/%m/%Y")
-
-    base_report = {"sdate": first, "edate": last, "dateFormat": "dd/MM/yyyy"}
-    base_old    = {"dateRange": f"{first},{last}", "dateFormat": "dd/MM/yyyy"}
+    from zoho_vertical_sdk.attendance import _org_from_service_url, _date_to_zoho
+    first_d = date(year, month, 1)
+    last_d  = date(year, month, _cal.monthrange(year, month)[1])
+    first_v3 = _date_to_zoho(first_d)
+    last_v3  = _date_to_zoho(last_d)
+    # Formato interno (endpoint .zp legacy)
+    first_legacy = first_d.strftime("%d/%m/%Y")
+    last_legacy  = last_d.strftime("%d/%m/%Y")
 
     # -----------------------------------------------------------------
     # 1. Endpoint interno .zp (stesso del vecchio script)
@@ -301,7 +306,11 @@ def _attendance_diagnose(cl, month: int, year: int, employee_id: str) -> None:
         org      = _org_from_service_url(SERVICE_URL)
         web_base = f"{cl.api_domain}/{org}"
         web_url  = f"{web_base}/AttendanceViewAction.zp"
-        web_params = {**base_old, "userId": employee_id}
+        web_params = {
+            "dateRange": f"{first_legacy},{last_legacy}",
+            "dateFormat": "dd/MM/yyyy",
+            "userId": employee_id,
+        }
         try:
             raw = cl.get_absolute(web_url, params=web_params)
             if isinstance(raw, dict) and raw.get("response") == "failure":
@@ -319,24 +328,15 @@ def _attendance_diagnose(cl, month: int, year: int, employee_id: str) -> None:
         info("  ℹ  ZOHO_SERVICE_URL non impostato → imposta es. ZOHO_SERVICE_URL=/relewanthrm/zp")
 
     # -----------------------------------------------------------------
-    # 2. REST API – getUserReport
+    # 2. REST API v3 – getUserReport (date in dd-MMM-yyyy)
     # -----------------------------------------------------------------
-    rest_variants = [
-        ("getUserReport – nessun empId",      {**base_report}),
-        ("getUserReport – empId=ID",          {**base_report, "empId": employee_id}),
-        ("getAttendanceEntries – empId=ID",   None),   # endpoint diverso
-    ]
     for label, params in [
-        ("getUserReport – nessun empId",     {**base_report}),
-        ("getUserReport – empId=ID",         {**base_report, "empId": employee_id}),
-        ("attendance – userId=ID (vecchio)", {**base_old, "userId": employee_id}),
+        ("v3/getUserReport – nessun empId", {"sdate": first_v3, "edate": last_v3}),
+        ("v3/getUserReport – empId=ID",     {"sdate": first_v3, "edate": last_v3, "empId": employee_id}),
     ]:
         try:
-            endpoint = "attendance/getUserReport" if "getUserReport" in label else "attendance"
-            raw = cl.get(endpoint, params=params)
-            if isinstance(raw, list) and raw and raw[0].get("response") == "failure":
-                info(f"  ✗  [{label}] → {raw[0].get('msg','?')}")
-            elif isinstance(raw, dict) and raw.get("response") == "failure":
+            raw = cl.get("v3/attendance/getUserReport", params=params)
+            if isinstance(raw, dict) and raw.get("response") == "failure":
                 info(f"  ✗  [{label}] → {raw.get('message', raw.get('msg','?'))}")
             else:
                 ok(f"  ✓  [{label}] → SUCCESSO")
@@ -468,11 +468,11 @@ def example_08_attendance_add():
     test_date = date(TEST_YEAR, TEST_MONTH, 1).strftime("%d/%m/%Y")
 
     info(f"Parametri che verrebbero inviati (DRY RUN):")
-    print(f"    erecno    = {EMPLOYEE_ID}")
-    print(f"    fdate     = {test_date}")
-    print(f"    ftime     = {time_to_seconds('09:00')}  ({seconds_to_time(time_to_seconds('09:00'))})")
-    print(f"    ttime     = {time_to_seconds('18:00')}  ({seconds_to_time(time_to_seconds('18:00'))})")
-    print(f"    endpoint  = POST /people/api/attendance")
+    print(f"    empId     = {EMPLOYEE_ID}")
+    print(f"    date      = {_to_zoho_date(test_date)}  (formato v3 dd-MMM-yyyy)")
+    print(f"    checkIn   = 09:00")
+    print(f"    checkOut  = 18:00")
+    print(f"    endpoint  = POST /people/api/v3/attendance/addEntries")
 
     info("Per eseguire realmente:")
     print(f"    client.attendance.add('{EMPLOYEE_ID}', '{test_date}', '09:00', '18:00')")
@@ -750,10 +750,76 @@ def example_14_timesheet_add_monthly():
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
-#  SEZIONE 15 – Gestione errori People API                                   #
+#  SEZIONE 15 – Leave – richieste ferie e saldo residuo                      #
 # ═══════════════════════════════════════════════════════════════════════════ #
 
-def example_15_error_handling():
+def example_15_leave():
+    section(15, "Leave – richieste ferie e saldo residuo")
+
+    if client is None:
+        skip("Client non inizializzato")
+        return
+
+    # --- Saldo residuo ---------------------------------------------------
+    info("Saldo residuo ferie (getLeaveRecord):")
+    try:
+        user_id = None if EMPLOYEE_ID == "self" else EMPLOYEE_ID
+        balance = client.leave.get_balance(user_id)
+        if balance:
+            ok(f"Tipi di ferie: {len(balance)}")
+            for b in balance[:5]:
+                ltype   = b.get("leaveType", "?")
+                bal     = b.get("balance", "?")
+                used    = b.get("used", "?")
+                print(f"    • {ltype:25}  residuo={bal:5}  usati={used}")
+        else:
+            warn("Nessun saldo ricevuto")
+    except ZohoAPIError as e:
+        err(f"getLeaveRecord: {e}")
+
+    # --- Lista richieste pendenti ----------------------------------------
+    info("Richieste ferie in stato Pending (getLeaveRequests):")
+    try:
+        reqs = client.leave.get_requests(
+            user_id=None if EMPLOYEE_ID == "self" else EMPLOYEE_ID,
+            status="Pending",
+        )
+        ok(f"Richieste Pending: {len(reqs)}")
+        for r in reqs[:3]:
+            rid   = r.get("requestId", "?")
+            lt    = r.get("leaveType", "?")
+            fd    = r.get("fromDate",  "?")
+            td    = r.get("toDate",    "?")
+            print(f"    • [{rid}]  {lt:20}  {fd} → {td}")
+        if len(reqs) > 3:
+            info(f"  … e altre {len(reqs) - 3}")
+    except ZohoAPIError as e:
+        err(f"getLeaveRequests: {e}")
+
+    # --- DRY RUN: invia richiesta ----------------------------------------
+    info("DRY RUN: addLeaveRequest")
+    from datetime import date as _date
+    next_month = TEST_MONTH % 12 + 1
+    next_year  = TEST_YEAR + (1 if next_month == 1 else 0)
+    sample_from = _date(next_year, next_month, 1).strftime("%d/%m/%Y")
+    sample_to   = _date(next_year, next_month, 3).strftime("%d/%m/%Y")
+    print(f"    client.leave.add_request(")
+    print(f"        user_id='{EMPLOYEE_ID}',")
+    print(f"        leave_type='Annual Leave',")
+    print(f"        from_date='{sample_from}',")
+    print(f"        to_date='{sample_to}',")
+    print(f"        reason='Ferie pianificate',")
+    print(f"    )")
+    print(f"    # endpoint: POST /people/api/v3/leave/addLeaveRequest")
+    print(f"    # date v3:  {_to_zoho_date(sample_from)} → {_to_zoho_date(sample_to)}")
+    ok("DRY RUN completato – nessuna modifica effettuata")
+
+
+# ═══════════════════════════════════════════════════════════════════════════ #
+#  SEZIONE 16 – Gestione errori People API                                   #
+# ═══════════════════════════════════════════════════════════════════════════ #
+
+def example_16_error_handling():
     section(15, "Gestione errori People API")
 
     if client is None:
@@ -820,14 +886,16 @@ ALL_EXAMPLES = {
     12: ("Timesheet – build_log_params",      example_12_timesheet_build_log_params),
     13: ("Timesheet – add (dry)",             example_13_timesheet_add),
     14: ("Timesheet – add_monthly (dry)",     example_14_timesheet_add_monthly),
-    15: ("Gestione errori",                   example_15_error_handling),
+    15: ("Leave – ferie e saldo",             example_15_leave),
+    16: ("Gestione errori",                   example_16_error_handling),
 }
 
 SECTION_ALIASES = {
     "employee": [2, 3, 4, 5],
     "attend":   [6, 7, 8, 9],
     "time":     [10, 11, 12, 13, 14],
-    "errors":   [15],
+    "leave":    [15],
+    "errors":   [16],
 }
 
 
@@ -876,10 +944,10 @@ def main():
         for num, (desc, _) in ALL_EXAMPLES.items():
             print(f"  {num:2d}.  {desc}")
         print()
-        print("  Alias: employee, attend, time, errors")
+        print("  Alias: employee, attend, time, leave, errors")
         return
 
-    title("🧪  Zoho People SDK – Attendance / Timesheet / Employee")
+    title("🧪  Zoho People SDK – Attendance / Timesheet / Employee / Leave")
     print(f"  Dipendente   : {EMPLOYEE_ID}")
     print(f"  Mese/Anno    : {TEST_MONTH:02d}/{TEST_YEAR}")
     print(f"  Job ID       : {JOB_ID or '(non impostato)'}")
