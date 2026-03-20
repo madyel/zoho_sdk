@@ -184,7 +184,7 @@ def setup_client() -> ZohoVerticalClient:
     # ── 1. Prova env vars ─────────────────────────────────────────────────
     client_id     = os.getenv("ZOHO_CLIENT_ID",     cfg.get("client_id", ""))
     client_secret = os.getenv("ZOHO_CLIENT_SECRET", "")
-    dc            = os.getenv("ZOHO_DATA_CENTRE",   cfg.get("data_centre", "US")).upper()
+    dc            = os.getenv("ZOHO_DATA_CENTRE",   cfg.get("data_centre", "EU")).upper()
 
     if client_id:
         info(f"Client ID caricato: {client_id[:20]}…")
@@ -222,7 +222,7 @@ def setup_client() -> ZohoVerticalClient:
 
     # ── 4. Data centre ────────────────────────────────────────────────────
     if dc not in ("US", "EU", "IN", "AU", "JP"):
-        dc = "US"
+        dc = "EU"
 
     # ── 5. Salva config (client_id + dc, NON il secret) ──────────────────
     _save_config(client_id, dc)
