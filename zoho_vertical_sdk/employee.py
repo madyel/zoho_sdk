@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 # Importa helper già usato in attendance
 from .attendance import _org_from_service_url
+from .exceptions import ZohoAPIError
 
 
 class PeopleEmployeeAPI:
@@ -109,14 +110,23 @@ class PeopleEmployeeAPI:
                 {"mode": "EMPLOYEE_TREE", "isint": "true", "erecno": employee_id}
             )
 
+        last_exc: Optional[Exception] = None
         for data in candidates:
             try:
                 raw = self._client.form_post_absolute(url, data=data)
-            except Exception:
+            except ZohoAPIError as exc:
+                last_exc = exc
+                continue
+            except Exception as exc:
+                last_exc = exc
                 continue
             if isinstance(raw, dict) and "users" in raw:
                 return raw
 
+        if last_exc is not None:
+            raise ZohoAPIError(
+                f"peopleAction.zp fallito per tutti i candidati: {last_exc}"
+            ) from last_exc
         return None
 
     # ------------------------------------------------------------------
