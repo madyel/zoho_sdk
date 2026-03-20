@@ -132,11 +132,11 @@ class PeopleAttendanceAPI:
         first_day = date(year, month, 1)
         last_day  = date(year, month, calendar.monthrange(year, month)[1])
 
-        params = {
+        params = self._client.people_params({
             "userId":    employee_id,
             "dateRange": f"{first_day.strftime('%d/%m/%Y')},{last_day.strftime('%d/%m/%Y')}",
             "dateFormat": "dd/MM/yyyy",
-        }
+        })
         return self._client.get("attendance", params=params)
 
     def get_range(
@@ -154,11 +154,11 @@ class PeopleAttendanceAPI:
         from_date, to_date : str
             Date nel formato specificato da date_format (default dd/MM/yyyy).
         """
-        params = {
+        params = self._client.people_params({
             "userId":    employee_id,
             "dateRange": f"{from_date},{to_date}",
             "dateFormat": date_format,
-        }
+        })
         return self._client.get("attendance", params=params)
 
     # ------------------------------------------------------------------
@@ -207,14 +207,14 @@ class PeopleAttendanceAPI:
             }
         }
 
-        payload = {
+        payload = self._client.people_params({
             "erecno":          employee_record_no,
             "fdate":           date_str,
             "ftime":           str(ftime),
             "ttime":           str(ttime),
             "isFromEntryPage": "true",
             "dataObj":         json.dumps({"dataObj": data_obj}),
-        }
+        })
 
         return self._client.form_post("attendance", data=payload)
 

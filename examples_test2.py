@@ -118,6 +118,8 @@ CLIENT_ID     = os.getenv("ZOHO_CLIENT_ID",     "")
 CLIENT_SECRET = os.getenv("ZOHO_CLIENT_SECRET", "")
 EMPLOYEE_ID   = os.getenv("ZOHO_EMPLOYEE_ID",   "self")
 JOB_ID        = os.getenv("ZOHO_JOB_ID",        "")
+# Es: ZOHO_SERVICE_URL=/relewanthrm/zp  (il path organizzativo Zoho People)
+SERVICE_URL   = os.getenv("ZOHO_SERVICE_URL",   "")
 
 _today = date.today()
 TEST_MONTH = int(os.getenv("ZOHO_TEST_MONTH", str(_today.month)))
@@ -278,14 +280,23 @@ def _attendance_diagnose(cl, month: int, year: int, employee_id: str) -> None:
     first = date(year, month, 1).strftime("%d/%m/%Y")
     last  = date(year, month, _cal.monthrange(year, month)[1]).strftime("%d/%m/%Y")
     dr    = f"{first},{last}"
+    base  = {"dateRange": dr, "dateFormat": "dd/MM/yyyy"}
+    svc   = {"servicename": "zohopeople", "serviceurl": SERVICE_URL} if SERVICE_URL else {}
 
     variants = [
-        ("nessun userId (utente corrente)", {"dateRange": dr, "dateFormat": "dd/MM/yyyy"}),
-        ("userId=self",   {"userId": "self",       "dateRange": dr, "dateFormat": "dd/MM/yyyy"}),
-        ("userId=erecno", {"userId": employee_id,  "dateRange": dr, "dateFormat": "dd/MM/yyyy"}),
-        ("soid+userId",   {"userId": employee_id,  "dateRange": dr, "dateFormat": "dd/MM/yyyy",
-                           "servicename": "zohopeople"}),
+        ("nessun userId",          {**base}),
+        ("userId=self",            {**base, "userId": "self"}),
+        ("userId=erecno",          {**base, "userId": employee_id}),
+        ("servicename+userId",     {**base, "userId": employee_id, "servicename": "zohopeople"}),
     ]
+    if SERVICE_URL:
+        variants += [
+            ("serviceurl+nessun userId", {**base, **svc}),
+            ("serviceurl+userId=self",   {**base, **svc, "userId": "self"}),
+            ("serviceurl+userId=erecno", {**base, **svc, "userId": employee_id}),
+        ]
+    else:
+        info("  ℹ  ZOHO_SERVICE_URL non impostato – imposta es. ZOHO_SERVICE_URL=/relewanthrm/zp")
 
     for label, params in variants:
         try:
