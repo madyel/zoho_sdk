@@ -34,6 +34,8 @@ from .query import QueryAPI
 from .bulk import BulkAPI
 from .notifications import NotificationsAPI
 from .attendance import PeopleAttendanceAPI
+from .timesheet import PeopleTimesheetAPI
+from .employee import PeopleEmployeeAPI
 
 
 class ZohoVerticalClient:
@@ -93,6 +95,8 @@ class ZohoVerticalClient:
         self._bulk: Optional[BulkAPI] = None
         self._notifications: Optional[NotificationsAPI] = None
         self._attendance: Optional[PeopleAttendanceAPI] = None
+        self._timesheet: Optional[PeopleTimesheetAPI] = None
+        self._employee: Optional[PeopleEmployeeAPI] = None
 
     # ------------------------------------------------------------------
     # Sub-API accessors
@@ -139,6 +143,18 @@ class ZohoVerticalClient:
         if self._attendance is None:
             self._attendance = PeopleAttendanceAPI(self)
         return self._attendance
+
+    @property
+    def timesheet(self) -> PeopleTimesheetAPI:
+        if self._timesheet is None:
+            self._timesheet = PeopleTimesheetAPI(self)
+        return self._timesheet
+
+    @property
+    def employee(self) -> PeopleEmployeeAPI:
+        if self._employee is None:
+            self._employee = PeopleEmployeeAPI(self)
+        return self._employee
 
     # ------------------------------------------------------------------
     # URL helper
