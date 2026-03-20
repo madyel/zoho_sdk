@@ -272,6 +272,34 @@ def example_05_employee_tree():
         err(f"Albero: {e}")
 
 
+def _attendance_diagnose(cl, month: int, year: int, employee_id: str) -> None:
+    """Prova varianti di parametri per l'attendance API e mostra i risultati."""
+    import calendar as _cal
+    first = date(year, month, 1).strftime("%d/%m/%Y")
+    last  = date(year, month, _cal.monthrange(year, month)[1]).strftime("%d/%m/%Y")
+    dr    = f"{first},{last}"
+
+    variants = [
+        ("nessun userId (utente corrente)", {"dateRange": dr, "dateFormat": "dd/MM/yyyy"}),
+        ("userId=self",   {"userId": "self",       "dateRange": dr, "dateFormat": "dd/MM/yyyy"}),
+        ("userId=erecno", {"userId": employee_id,  "dateRange": dr, "dateFormat": "dd/MM/yyyy"}),
+        ("soid+userId",   {"userId": employee_id,  "dateRange": dr, "dateFormat": "dd/MM/yyyy",
+                           "servicename": "zohopeople"}),
+    ]
+
+    for label, params in variants:
+        try:
+            raw = cl.get("attendance", params=params)
+            if isinstance(raw, list) and raw and raw[0].get("response") == "failure":
+                info(f"  ✗  [{label}] → {raw[0].get('msg','?')}")
+            else:
+                ok(f"  ✓  [{label}] → SUCCESSO")
+                dump(f"  risposta [{label}]", raw)
+                return
+        except ZohoAPIError as ex:
+            info(f"  ✗  [{label}] → {ex}")
+
+
 # ═══════════════════════════════════════════════════════════════════════════ #
 #  SEZIONE 6 – Attendance – presenze mensili                                 #
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -298,9 +326,8 @@ def example_06_attendance_monthly():
                 msg = result[0].get("msg", "?")
                 err(f"Zoho People ha rifiutato la richiesta: '{msg}'")
                 if "Permission" in msg:
-                    info("Causa: il ruolo dell'utente API non ha accesso alle presenze.")
-                    info("Soluzione: Zoho People Admin → Settings → Roles → abilita")
-                    info("           la visualizzazione delle presenze via API.")
+                    info("Provo varianti del parametro userId per diagnostica:")
+                    _attendance_diagnose(client, TEST_MONTH, TEST_YEAR, EMPLOYEE_ID)
                 return
             ok(f"Risposta è una lista con {len(result)} elementi")
             info("Primi 2 elementi:")
@@ -588,9 +615,15 @@ def example_13_timesheet_add():
         year=TEST_YEAR, month=TEST_MONTH, job_id=JOB_ID
     )
 
+    # Tenta di ottenere l'eNo dal profilo presenze; se l'API ritorna Permission
+    # Denied usa direttamente EMPLOYEE_ID come fallback.
+    eNo = EMPLOYEE_ID
     try:
         result = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
-        eNo    = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID)
+        if isinstance(result, dict):
+            eNo = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID)
+        elif isinstance(result, list):
+            warn("attendance.get_monthly ha restituito un errore – uso EMPLOYEE_ID come eNo")
     except ZohoAPIError as e:
         err(f"get_monthly: {e}")
         return
@@ -636,9 +669,13 @@ def example_14_timesheet_add_monthly():
     print("    timesheetDispAction() → build logParams → sendTimesheet()")
     print()
 
+    eNo = EMPLOYEE_ID
     try:
         result = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
-        eNo    = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID)
+        if isinstance(result, dict):
+            eNo = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID)
+        elif isinstance(result, list):
+            warn("attendance.get_monthly ha restituito un errore – uso EMPLOYEE_ID come eNo")
     except ZohoAPIError as e:
         err(f"get_monthly: {e}")
         return
