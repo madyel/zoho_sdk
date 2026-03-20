@@ -138,6 +138,7 @@ class PeopleTimesheetAPI:
             "toDate":     to_date,
             "dateFormat": date_format,
         }
+        result: Dict[str, Any] = {}
         for params in [base_params, {**base_params, "userId": employee_id}]:
             try:
                 result = self._client.get("timetracker/getTimesheetLog", params=params)
@@ -145,7 +146,7 @@ class PeopleTimesheetAPI:
                 continue
             if isinstance(result, dict) and result.get("response") != "failure":
                 return result
-        return result  # type: ignore[return-value]
+        return result
 
     def get_monthly(
         self,
