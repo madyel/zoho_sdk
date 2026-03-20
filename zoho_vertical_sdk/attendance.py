@@ -2,29 +2,33 @@
 PeopleAttendanceAPI  –  Zoho People Attendance REST API
 ========================================================
 
-Sostituisce il vecchio approccio cookie/CSRF con OAuth 2.0.
+Endpoint ufficiali Zoho People Attendance (OAuth 2.0):
 
-Vecchio codice (web scraping):
-    POST https://people.zoho.com/{service_url}/AttendanceAction.zp
-    data = 'mode=bulkAttendReg&conreqcsr={CSRF_TOKEN}&erecno={eNo}&...'
+  GET  /people/api/attendance/getUserReport
+       → report mensile presenze con TotalHours, Status, ecc.
+       Params: sdate, edate, empId (o emailId o mapId), dateFormat
 
-Nuovo approccio (REST API ufficiale):
-    POST https://people.zoho.com/people/api/attendance
-    Authorization: Zoho-oauthtoken {access_token}
-    Content-Type: application/x-www-form-urlencoded
-    erecno={eNo}&fdate={date}&ftime={sec_from}&ttime={sec_to}
+  GET  /people/api/attendance/getAttendanceEntries
+       → singole timbrature per un giorno
+       Params: date, erecno (o mapId o emailId o empId), dateFormat
+
+  POST /people/api/attendance
+       → registra check-in / check-out
+       Params: empId (o emailId o mapId), checkIn, checkOut, dateFormat
+               (formato checkIn/checkOut: dd/MM/yyyy HH:mm:ss)
 
 Scope OAuth richiesti: ZohoPeople.attendance.ALL
 
 Riferimento API:
-    https://www.zoho.com/people/api-integration/attendance.html
+    https://www.zoho.com/people/api/userreport.html
+    https://www.zoho.com/people/api/attendance-entries.html
+    https://www.zoho.com/people/api/attendance-checkin-checkout.html
 """
 
 from __future__ import annotations
 
 import calendar
 import json
-import urllib.parse
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -39,8 +43,6 @@ if TYPE_CHECKING:
 def time_to_seconds(t: str) -> int:
     """
     Converte un orario HH:MM (o HH:MM:SS) in secondi dalla mezzanotte.
-
-    Equivale alla funzione get_sec() del vecchio script.
 
     Examples
     --------
@@ -62,6 +64,71 @@ def seconds_to_time(seconds: int) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Normalizzazione risposta getUserReport → formato dayList
+# ---------------------------------------------------------------------------
+
+def _normalize_user_report(raw: Any) -> Dict[str, Any]:
+    """
+    Converte la risposta di ``attendance/getUserReport`` nel formato
+    interno ``{"dayList": {...}, "userDetails": {"eNo": "..."}}``
+    usato dal resto dell'SDK.
+
+    getUserReport risponde con::
+
+        {
+          "result": [
+            {
+              "attendanceDetails": {
+                "2026-03-01": {
+                  "Status": "Present",
+                  "TotalHours": "08:30",
+                  ...
+                }
+              },
+              "employeeDetails": {
+                "erecno": "439215000007867001",
+                ...
+              }
+            }
+          ]
+        }
+    """
+    if isinstance(raw, dict) and "result" in raw:
+        records = raw["result"]
+        if not records:
+            return {"dayList": {}, "userDetails": {}}
+        first = records[0]
+        employee = first.get("employeeDetails", {})
+        attendance = first.get("attendanceDetails", {})
+
+        day_list: Dict[str, Any] = {}
+        for date_key, day in attendance.items():
+            # Converti yyyy-MM-dd → dd/MM/yyyy se necessario
+            try:
+                d = datetime.strptime(date_key, "%Y-%m-%d")
+                fmt_key = d.strftime("%d/%m/%Y")
+            except ValueError:
+                fmt_key = date_key
+
+            day_list[fmt_key] = {
+                "status": day.get("Status", ""),
+                "tHrs":   day.get("TotalHours", "00:00"),
+                "ldate":  fmt_key,
+                # conserva tutti i campi originali
+                **{k: v for k, v in day.items()},
+            }
+
+        return {
+            "dayList":     day_list,
+            "userDetails": {"eNo": employee.get("erecno", ""), **employee},
+            "_raw":        raw,
+        }
+
+    # Risposta non riconosciuta → restituisci com'è
+    return {"dayList": {}, "userDetails": {}, "_raw": raw}
+
+
+# ---------------------------------------------------------------------------
 # API class
 # ---------------------------------------------------------------------------
 
@@ -73,7 +140,6 @@ class PeopleAttendanceAPI:
         client.attendance.get_monthly(employee_id, month, year)
         client.attendance.add(employee_id, date_str, "09:00", "18:00")
         client.attendance.add_bulk(employee_id, records)
-        client.attendance.get_employee_details()
 
     Parameters
     ----------
@@ -83,29 +149,6 @@ class PeopleAttendanceAPI:
 
     def __init__(self, client: "ZohoVerticalClient"):
         self._client = client
-
-    # ------------------------------------------------------------------
-    # Dettagli dipendente
-    # ------------------------------------------------------------------
-
-    def get_employee_details(self, employee_id: str = "self") -> Dict[str, Any]:
-        """
-        Recupera i dettagli del dipendente, incluso il numero record (eNo).
-
-        Equivale alla chiamata attendanceViewAction() del vecchio script
-        per ottenere eNo = dl['userDetails']['eNo'].
-
-        Parameters
-        ----------
-        employee_id : str
-            ID dipendente Zoho People o "self" per l'utente corrente.
-
-        Returns
-        -------
-        dict  con chiavi: eNo, empId, name, department, ...
-        """
-        params = {"userId": employee_id}
-        return self._client.get("forms/P_EmployeeView/getRecord", params=params)
 
     # ------------------------------------------------------------------
     # Lettura presenze
@@ -118,26 +161,27 @@ class PeopleAttendanceAPI:
         year: int,
     ) -> Dict[str, Any]:
         """
-        Recupera il riepilogo presenze mensile (dayList + userDetails).
+        Recupera il riepilogo presenze mensile via ``getUserReport``.
 
-        Equivale alla chiamata attendanceViewAction() del vecchio script
-        per ottenere dl['dayList'].
+        Endpoint: GET /people/api/attendance/getUserReport
 
         Returns
         -------
         dict
-            ``{"dayList": {"01/03/2025": {"status": "Present", "tHrs": "08:00", ...}, ...},
+            ``{"dayList": {"01/03/2026": {"status": "Present", "tHrs": "08:30", ...}, ...},
                "userDetails": {"eNo": "...", ...}}``
         """
         first_day = date(year, month, 1)
         last_day  = date(year, month, calendar.monthrange(year, month)[1])
 
         params = self._client.people_params({
-            "userId":    employee_id,
-            "dateRange": f"{first_day.strftime('%d/%m/%Y')},{last_day.strftime('%d/%m/%Y')}",
+            "empId":      employee_id,
+            "sdate":      first_day.strftime("%d/%m/%Y"),
+            "edate":      last_day.strftime("%d/%m/%Y"),
             "dateFormat": "dd/MM/yyyy",
         })
-        return self._client.get("attendance", params=params)
+        raw = self._client.get("attendance/getUserReport", params=params)
+        return _normalize_user_report(raw)
 
     def get_range(
         self,
@@ -149,17 +193,44 @@ class PeopleAttendanceAPI:
         """
         Recupera le presenze per un intervallo di date.
 
+        Endpoint: GET /people/api/attendance/getUserReport
+
         Parameters
         ----------
         from_date, to_date : str
             Date nel formato specificato da date_format (default dd/MM/yyyy).
         """
         params = self._client.people_params({
-            "userId":    employee_id,
-            "dateRange": f"{from_date},{to_date}",
+            "empId":      employee_id,
+            "sdate":      from_date,
+            "edate":      to_date,
             "dateFormat": date_format,
         })
-        return self._client.get("attendance", params=params)
+        raw = self._client.get("attendance/getUserReport", params=params)
+        return _normalize_user_report(raw)
+
+    def get_entries(
+        self,
+        employee_id: str,
+        day: str,
+        date_format: str = "dd/MM/yyyy",
+    ) -> Any:
+        """
+        Recupera le singole timbrature per un giorno specifico.
+
+        Endpoint: GET /people/api/attendance/getAttendanceEntries
+
+        Parameters
+        ----------
+        day : str
+            Data nel formato date_format (default dd/MM/yyyy).
+        """
+        params = self._client.people_params({
+            "empId":      employee_id,
+            "date":       day,
+            "dateFormat": date_format,
+        })
+        return self._client.get("attendance/getAttendanceEntries", params=params)
 
     # ------------------------------------------------------------------
     # Invio presenze
@@ -167,23 +238,23 @@ class PeopleAttendanceAPI:
 
     def add(
         self,
-        employee_record_no: str,
+        employee_id: str,
         date_str: str,
         check_in: str = "09:00",
         check_out: str = "18:00",
         date_format: str = "dd/MM/yyyy",
     ) -> Dict[str, Any]:
         """
-        Registra la presenza per un singolo giorno.
+        Registra la presenza per un singolo giorno (check-in / check-out).
 
-        Sostituisce la chiamata POST ad AttendanceAction.zp del vecchio script.
+        Endpoint: POST /people/api/attendance
 
         Parameters
         ----------
-        employee_record_no : str
-            Numero record dipendente (eNo) — es. "P-000042".
+        employee_id : str
+            ID dipendente Zoho People (empId).
         date_str : str
-            Data nel formato dd/MM/yyyy — es. "15/03/2025".
+            Data nel formato dd/MM/yyyy — es. "15/03/2026".
         check_in : str
             Orario entrata HH:MM — es. "09:00".
         check_out : str
@@ -193,52 +264,38 @@ class PeopleAttendanceAPI:
         -------
         dict  con chiave "message" e "status".
         """
-        # La Zoho People Attendance API accetta secondi dalla mezzanotte
-        # come nel vecchio get_sec() — mantenuta compatibilità
-        ftime = time_to_seconds(check_in)
-        ttime = time_to_seconds(check_out)
-
-        data_obj = {
-            date_str: {
-                "fromDate": date_str,
-                "toDate":   date_str,
-                "ftime":    ftime,
-                "ttime":    ttime,
-            }
-        }
+        # L'API vuole checkIn/checkOut in formato: dd/MM/yyyy HH:mm:ss
+        check_in_dt  = f"{date_str} {check_in}:00"
+        check_out_dt = f"{date_str} {check_out}:00"
 
         payload = self._client.people_params({
-            "erecno":          employee_record_no,
-            "fdate":           date_str,
-            "ftime":           str(ftime),
-            "ttime":           str(ttime),
-            "isFromEntryPage": "true",
-            "dataObj":         json.dumps({"dataObj": data_obj}),
+            "empId":      employee_id,
+            "checkIn":    check_in_dt,
+            "checkOut":   check_out_dt,
+            "dateFormat": date_format,
         })
 
         return self._client.form_post("attendance", data=payload)
 
     def add_bulk(
         self,
-        employee_record_no: str,
+        employee_id: str,
         records: List[Dict[str, str]],
     ) -> List[Dict[str, Any]]:
         """
         Registra le presenze per più giorni in sequenza.
 
-        Sostituisce il ciclo for di sendAttendance() del vecchio script.
-
         Parameters
         ----------
-        employee_record_no : str
-            Numero record dipendente (eNo).
+        employee_id : str
+            ID dipendente Zoho People (empId).
         records : list[dict]
             Lista di dict con chiavi: date, check_in, check_out.
             Esempio::
 
                 [
-                    {"date": "03/03/2025", "check_in": "09:00", "check_out": "18:00"},
-                    {"date": "04/03/2025", "check_in": "09:00", "check_out": "18:00"},
+                    {"date": "03/03/2026", "check_in": "09:00", "check_out": "18:00"},
+                    {"date": "04/03/2026", "check_in": "09:00", "check_out": "18:00"},
                 ]
 
         Returns
@@ -248,7 +305,7 @@ class PeopleAttendanceAPI:
         results = []
         for rec in records:
             result = self.add(
-                employee_record_no=employee_record_no,
+                employee_id=employee_id,
                 date_str=rec["date"],
                 check_in=rec.get("check_in", "09:00"),
                 check_out=rec.get("check_out", "18:00"),
@@ -268,19 +325,15 @@ class PeopleAttendanceAPI:
         """
         Restituisce le date assenti/vuote dal dayList restituito da get_monthly().
 
-        Equivale al filtro del vecchio sendAttendance():
-            if status == 'Absent' or status == '' and tHrs == "00:00"
-
         Returns
         -------
         list[str]  Lista di date in formato dd/MM/yyyy.
         """
         absent = []
         for date_key, day in day_list.items():
-            status = day.get("status", "")
-            t_hrs  = day.get("tHrs", "00:00")
+            status = day.get("status", day.get("Status", ""))
+            t_hrs  = day.get("tHrs", day.get("TotalHours", "00:00"))
             if (status in ("Absent", "")) and t_hrs == "00:00":
-                # Normalizza la data in dd/MM/yyyy (il vecchio usava ldate)
                 ldate = day.get("ldate", date_key)
                 absent.append(ldate)
         return absent

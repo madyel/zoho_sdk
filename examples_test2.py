@@ -275,34 +275,45 @@ def example_05_employee_tree():
 
 
 def _attendance_diagnose(cl, month: int, year: int, employee_id: str) -> None:
-    """Prova varianti di parametri per l'attendance API e mostra i risultati."""
+    """Prova varianti di endpoint e parametri per l'attendance API."""
     import calendar as _cal
     first = date(year, month, 1).strftime("%d/%m/%Y")
     last  = date(year, month, _cal.monthrange(year, month)[1]).strftime("%d/%m/%Y")
-    dr    = f"{first},{last}"
-    base  = {"dateRange": dr, "dateFormat": "dd/MM/yyyy"}
     svc   = {"servicename": "zohopeople", "serviceurl": SERVICE_URL} if SERVICE_URL else {}
 
+    # Endpoint getUserReport (corretto per report mensile)
+    base_report = {"sdate": first, "edate": last, "dateFormat": "dd/MM/yyyy"}
+    # Endpoint vecchio (check-in/out) — manteniamo per confronto
+    base_old    = {"dateRange": f"{first},{last}", "dateFormat": "dd/MM/yyyy"}
+
     variants = [
-        ("nessun userId",          {**base}),
-        ("userId=self",            {**base, "userId": "self"}),
-        ("userId=erecno",          {**base, "userId": employee_id}),
-        ("servicename+userId",     {**base, "userId": employee_id, "servicename": "zohopeople"}),
+        # --- endpoint corretto: getUserReport ---
+        ("getUserReport – nessun empId",      "attendance/getUserReport", {**base_report}),
+        ("getUserReport – empId=self",        "attendance/getUserReport", {**base_report, "empId": "self"}),
+        ("getUserReport – empId=ID",          "attendance/getUserReport", {**base_report, "empId": employee_id}),
+        # --- getAttendanceEntries (singolo giorno) ---
+        ("getAttendanceEntries – empId=ID",   "attendance/getAttendanceEntries",
+         {"date": first, "empId": employee_id, "dateFormat": "dd/MM/yyyy"}),
+        ("getAttendanceEntries – erecno=ID",  "attendance/getAttendanceEntries",
+         {"date": first, "erecno": employee_id, "dateFormat": "dd/MM/yyyy"}),
+        # --- vecchio endpoint attendance (solo check-in/out) ---
+        ("attendance – userId=ID (vecchio)",  "attendance", {**base_old, "userId": employee_id}),
     ]
     if SERVICE_URL:
         variants += [
-            ("serviceurl+nessun userId", {**base, **svc}),
-            ("serviceurl+userId=self",   {**base, **svc, "userId": "self"}),
-            ("serviceurl+userId=erecno", {**base, **svc, "userId": employee_id}),
+            ("getUserReport+svc – empId=ID",  "attendance/getUserReport",
+             {**base_report, **svc, "empId": employee_id}),
         ]
     else:
         info("  ℹ  ZOHO_SERVICE_URL non impostato – imposta es. ZOHO_SERVICE_URL=/relewanthrm/zp")
 
-    for label, params in variants:
+    for label, endpoint, params in variants:
         try:
-            raw = cl.get("attendance", params=params)
+            raw = cl.get(endpoint, params=params)
             if isinstance(raw, list) and raw and raw[0].get("response") == "failure":
                 info(f"  ✗  [{label}] → {raw[0].get('msg','?')}")
+            elif isinstance(raw, dict) and raw.get("response") == "failure":
+                info(f"  ✗  [{label}] → {raw.get('message', raw.get('msg','?'))}")
             else:
                 ok(f"  ✓  [{label}] → SUCCESSO")
                 dump(f"  risposta [{label}]", raw)
@@ -330,25 +341,21 @@ def example_06_attendance_monthly():
         info("Struttura risposta (raw, troncata):")
         dump("get_monthly()", result)
 
-        # Gestisci sia dict che list (il formato varia per versione API)
-        if isinstance(result, list):
-            # Controlla se è un errore di permesso restituito come lista
-            if result and isinstance(result[0], dict) and result[0].get("response") == "failure":
-                msg = result[0].get("msg", "?")
-                err(f"Zoho People ha rifiutato la richiesta: '{msg}'")
-                if "Permission" in msg:
-                    info("Provo varianti del parametro userId per diagnostica:")
-                    _attendance_diagnose(client, TEST_MONTH, TEST_YEAR, EMPLOYEE_ID)
-                return
-            ok(f"Risposta è una lista con {len(result)} elementi")
-            info("Primi 2 elementi:")
-            for item in result[:2]:
-                dump("  item", item)
+        # Errore di permesso (può arrivare come dict o lista)
+        raw_check = result.get("_raw", result)
+        if isinstance(raw_check, list) and raw_check:
+            raw_check = raw_check[0]
+        if isinstance(raw_check, dict) and raw_check.get("response") == "failure":
+            msg = raw_check.get("msg", raw_check.get("message", "?"))
+            err(f"Zoho People ha rifiutato la richiesta: '{msg}'")
+            info("Provo varianti di endpoint e parametri per diagnostica:")
+            _attendance_diagnose(client, TEST_MONTH, TEST_YEAR, EMPLOYEE_ID)
             return
 
         user = result.get("userDetails", {})
         if user:
-            info(f"Dipendente: {user.get('firstName','')} {user.get('lastName','')}  "
+            info(f"Dipendente: {user.get('firstName', user.get('first name',''))} "
+                 f"{user.get('lastName', user.get('last name',''))}  "
                  f"eNo={user.get('eNo','?')}")
 
         day_list = result.get("dayList", {})
@@ -365,7 +372,10 @@ def example_06_attendance_monthly():
                 t_hrs  = day.get("tHrs", "00:00")
                 print(f"    • {ldate}  status={status:10}  ore={t_hrs}")
         else:
-            warn("dayList vuoto o non disponibile")
+            warn("dayList vuoto – risposta raw:")
+            dump("_raw", result.get("_raw", result))
+            info("Avvio diagnostica endpoint:")
+            _attendance_diagnose(client, TEST_MONTH, TEST_YEAR, EMPLOYEE_ID)
 
     except ZohoAPIError as e:
         err(f"get_monthly: {e}")
@@ -385,11 +395,12 @@ def example_07_attendance_absent_days():
     try:
         result   = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
 
-        if isinstance(result, list):
-            if result and isinstance(result[0], dict) and result[0].get("response") == "failure":
-                skip(f"Attendance API: '{result[0].get('msg','?')}' — vedi sezione 6")
-            else:
-                skip("dayList non disponibile in questo formato di risposta")
+        # Errore di permesso
+        raw_check = result.get("_raw", result)
+        if isinstance(raw_check, list) and raw_check:
+            raw_check = raw_check[0]
+        if isinstance(raw_check, dict) and raw_check.get("response") == "failure":
+            skip(f"Attendance API: '{raw_check.get('msg','?')}' — vedi sezione 6")
             return
 
         day_list = result.get("dayList", {})
@@ -459,9 +470,11 @@ def example_09_attendance_bulk():
         err(f"get_monthly: {e}")
         return
 
-    if isinstance(result, list):
-        warn("Risposta come lista — vedi sezione 6 per il formato raw")
-        skip("dayList non disponibile in questo formato di risposta")
+    raw_check = result.get("_raw", result)
+    if isinstance(raw_check, list) and raw_check:
+        raw_check = raw_check[0]
+    if isinstance(raw_check, dict) and raw_check.get("response") == "failure":
+        skip(f"Attendance API: '{raw_check.get('msg','?')}' — vedi sezione 6")
         return
 
     day_list = result.get("dayList", {})
@@ -631,10 +644,9 @@ def example_13_timesheet_add():
     eNo = EMPLOYEE_ID
     try:
         result = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
-        if isinstance(result, dict):
-            eNo = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID)
-        elif isinstance(result, list):
-            warn("attendance.get_monthly ha restituito un errore – uso EMPLOYEE_ID come eNo")
+        eNo = result.get("userDetails", {}).get("eNo") or EMPLOYEE_ID
+        if eNo == EMPLOYEE_ID:
+            warn("userDetails.eNo non disponibile – uso EMPLOYEE_ID come eNo")
     except ZohoAPIError as e:
         err(f"get_monthly: {e}")
         return
@@ -683,10 +695,9 @@ def example_14_timesheet_add_monthly():
     eNo = EMPLOYEE_ID
     try:
         result = client.attendance.get_monthly(EMPLOYEE_ID, TEST_MONTH, TEST_YEAR)
-        if isinstance(result, dict):
-            eNo = result.get("userDetails", {}).get("eNo", EMPLOYEE_ID)
-        elif isinstance(result, list):
-            warn("attendance.get_monthly ha restituito un errore – uso EMPLOYEE_ID come eNo")
+        eNo = result.get("userDetails", {}).get("eNo") or EMPLOYEE_ID
+        if eNo == EMPLOYEE_ID:
+            warn("userDetails.eNo non disponibile – uso EMPLOYEE_ID come eNo")
     except ZohoAPIError as e:
         err(f"get_monthly: {e}")
         return
