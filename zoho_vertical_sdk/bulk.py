@@ -87,6 +87,10 @@ class BulkAPI:
         payload = {"query": query}
         return self._client.post("bulk/read", json=payload)
 
+    def list_read_jobs(self) -> Dict[str, Any]:
+        """List all bulk-read jobs."""
+        return self._client.get("bulk/read")
+
     def get_read_job(self, job_id: str) -> Dict[str, Any]:
         """Get the status of a bulk-read job."""
         return self._client.get(f"bulk/read/{job_id}")
@@ -194,6 +198,10 @@ class BulkAPI:
             ],
         }
         return self._client.post("bulk/write", json=payload)
+
+    def list_write_jobs(self) -> Dict[str, Any]:
+        """List all bulk-write jobs."""
+        return self._client.get("bulk/write")
 
     def get_write_job(self, job_id: str) -> Dict[str, Any]:
         """Get the status of a bulk-write job."""

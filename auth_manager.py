@@ -70,11 +70,11 @@ DEFAULT_SCOPES = [
 
 # Data centre → (api_domain, accounts_url)
 DATA_CENTRES = {
-    "US": ("https://zohoverticalapis.com",    "https://accounts.zoho.com"),
-    "EU": ("https://zohoverticalapis.eu",     "https://accounts.zoho.eu"),
-    "IN": ("https://zohoverticalapis.in",     "https://accounts.zoho.in"),
-    "AU": ("https://zohoverticalapis.com.au", "https://accounts.zoho.com.au"),
-    "JP": ("https://zohoverticalapis.jp",     "https://accounts.zoho.jp"),
+    "US": ("https://people.zoho.com",    "https://accounts.zoho.com"),
+    "EU": ("https://people.zoho.eu",     "https://accounts.zoho.eu"),
+    "IN": ("https://people.zoho.in",     "https://accounts.zoho.in"),
+    "AU": ("https://people.zoho.com.au", "https://accounts.zoho.com.au"),
+    "JP": ("https://people.zoho.jp",     "https://accounts.zoho.jp"),
 }
 
 # File di credenziali di default

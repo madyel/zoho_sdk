@@ -62,7 +62,7 @@ class ZohoVerticalClient:
     >>> modules = client.modules.list_modules()
     """
 
-    DEFAULT_API_DOMAIN = "https://zohoverticalapis.com"
+    DEFAULT_API_DOMAIN = "https://people.zoho.com"
     DEFAULT_VERSION = "v6"
 
     def __init__(
@@ -138,7 +138,7 @@ class ZohoVerticalClient:
 
     def build_url(self, path: str) -> str:
         """Construct full URL from a relative path."""
-        base = f"{self.api_domain}/crm/{self.version}/"
+        base = f"{self.api_domain}/people/api/"
         # Strip leading slash to avoid double-slash
         return urljoin(base, path.lstrip("/"))
 
