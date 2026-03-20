@@ -51,6 +51,17 @@ from typing import Optional
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
+# ---------------------------------------------------------------------------
+# Carica variabili d'ambiente dal file .env (se presente)
+# ---------------------------------------------------------------------------
+try:
+    from dotenv import load_dotenv
+    _env_file = os.path.join(BASE_DIR, ".env")
+    if os.path.exists(_env_file):
+        load_dotenv(_env_file)
+except ImportError:
+    pass  # python-dotenv non installato, si usano le env var di sistema
+
 try:
     from zoho_vertical_sdk import (
         ZohoVerticalClient,
@@ -80,9 +91,10 @@ def title(text: str) -> None:
     print(f"  {text}")
     print("═" * w)
 
-def section(num: int, text: str) -> None:
+def section(num, text: str) -> None:
+    num_str = f"{num:02d}" if isinstance(num, int) else str(num)
     print(f"\n{'─'*60}")
-    print(f"  [{num:02d}]  {text}")
+    print(f"  [{num_str}]  {text}")
     print("─" * 60)
 
 def ok(msg: str)   -> None: print(f"  ✅  {msg}")
