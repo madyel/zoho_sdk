@@ -300,20 +300,24 @@ class PeopleAttendanceAPI:
         sdate     = _date_to_zoho(first_day)
         edate     = _date_to_zoho(last_day)
 
+        sdate = first_day.strftime("%d/%m/%Y")
+        edate = last_day.strftime("%d/%m/%Y")
+
         base_params = self._client.people_params({
-            "sdate": sdate,
-            "edate": edate,
+            "sdate":      sdate,
+            "edate":      edate,
+            "dateFormat": "dd/MM/yyyy",
         })
 
         # 1. Senza empId → restituisce dati dell'utente autenticato
-        raw = self._client.get("v3/attendance/getUserReport", params=base_params)
+        raw = self._client.get("attendance/getUserReport", params=base_params)
         result = _normalize_user_report(raw)
         if result.get("dayList"):
             return result
 
         # 2. Con empId esplicito
         params_with_id = {**base_params, "empId": employee_id}
-        raw2   = self._client.get("v3/attendance/getUserReport", params=params_with_id)
+        raw2   = self._client.get("attendance/getUserReport", params=params_with_id)
         return _normalize_user_report(raw2)
 
     # ------------------------------------------------------------------
@@ -368,11 +372,12 @@ class PeopleAttendanceAPI:
             Date nel formato dd/MM/yyyy (vengono convertite in dd-MMM-yyyy per v3).
         """
         params = self._client.people_params({
-            "empId": employee_id,
-            "sdate": _to_zoho_date(from_date),
-            "edate": _to_zoho_date(to_date),
+            "empId":      employee_id,
+            "sdate":      from_date,
+            "edate":      to_date,
+            "dateFormat": "dd/MM/yyyy",
         })
-        raw = self._client.get("v3/attendance/getUserReport", params=params)
+        raw = self._client.get("attendance/getUserReport", params=params)
         return _normalize_user_report(raw)
 
     def get_entries(
@@ -392,9 +397,9 @@ class PeopleAttendanceAPI:
         """
         params = self._client.people_params({
             "empId": employee_id,
-            "date":  _to_zoho_date(day),
+            "date":  day,
         })
-        return self._client.get("v3/attendance/getAttendanceEntries", params=params)
+        return self._client.get("attendance/getEntries", params=params)
 
     # ------------------------------------------------------------------
     # Invio presenze – endpoint interno (AttendanceAction.zp)
@@ -475,9 +480,9 @@ class PeopleAttendanceAPI:
         payload = self._client.people_params({
             "empId":        employee_id,
             "checkInTime":  check_in_time,
-            "date":         _to_zoho_date(date_str),
+            "date":         date_str,
         })
-        return self._client.form_post("v3/attendance/checkIn", data=payload)
+        return self._client.form_post("attendance/checkIn", data=payload)
 
     def check_out(
         self,
@@ -502,9 +507,9 @@ class PeopleAttendanceAPI:
         payload = self._client.people_params({
             "empId":         employee_id,
             "checkOutTime":  check_out_time,
-            "date":          _to_zoho_date(date_str),
+            "date":          date_str,
         })
-        return self._client.form_post("v3/attendance/checkOut", data=payload)
+        return self._client.form_post("attendance/checkOut", data=payload)
 
     def add(
         self,
@@ -533,14 +538,14 @@ class PeopleAttendanceAPI:
         if result is not None:
             return result
 
-        # 2. Fallback REST API v3
+        # 2. Fallback REST API
         payload = self._client.people_params({
             "empId":    employee_id,
             "checkIn":  check_in,
             "checkOut": check_out,
-            "date":     _to_zoho_date(date_str),
+            "date":     date_str,
         })
-        return self._client.form_post("v3/attendance/addEntries", data=payload)
+        return self._client.form_post("attendance/addEntries", data=payload)
 
     def add_bulk(
         self,

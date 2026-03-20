@@ -37,6 +37,12 @@ from .attendance import PeopleAttendanceAPI
 from .timesheet import PeopleTimesheetAPI
 from .employee import PeopleEmployeeAPI
 from .leave import PeopleLeaveAPI
+from .compensatory import CompensatoryAPI
+from .shift import ShiftAPI
+from .variable import VariableAPI
+from .files_api import FilesAPI
+from .performance import PerformanceAPI
+from .orgstructure import OrgStructureAPI
 
 
 class ZohoVerticalClient:
@@ -104,6 +110,12 @@ class ZohoVerticalClient:
         self._timesheet: Optional[PeopleTimesheetAPI] = None
         self._employee: Optional[PeopleEmployeeAPI] = None
         self._leave: Optional[PeopleLeaveAPI] = None
+        self._compensatory: Optional[CompensatoryAPI] = None
+        self._shift: Optional[ShiftAPI] = None
+        self._variable: Optional[VariableAPI] = None
+        self._files: Optional[FilesAPI] = None
+        self._performance: Optional[PerformanceAPI] = None
+        self._orgstructure: Optional[OrgStructureAPI] = None
 
     # ------------------------------------------------------------------
     # Sub-API accessors
@@ -168,6 +180,42 @@ class ZohoVerticalClient:
         if self._leave is None:
             self._leave = PeopleLeaveAPI(self)
         return self._leave
+
+    @property
+    def compensatory(self) -> CompensatoryAPI:
+        if self._compensatory is None:
+            self._compensatory = CompensatoryAPI(self)
+        return self._compensatory
+
+    @property
+    def shift(self) -> ShiftAPI:
+        if self._shift is None:
+            self._shift = ShiftAPI(self)
+        return self._shift
+
+    @property
+    def variable(self) -> VariableAPI:
+        if self._variable is None:
+            self._variable = VariableAPI(self)
+        return self._variable
+
+    @property
+    def files(self) -> FilesAPI:
+        if self._files is None:
+            self._files = FilesAPI(self)
+        return self._files
+
+    @property
+    def performance(self) -> PerformanceAPI:
+        if self._performance is None:
+            self._performance = PerformanceAPI(self)
+        return self._performance
+
+    @property
+    def orgstructure(self) -> OrgStructureAPI:
+        if self._orgstructure is None:
+            self._orgstructure = OrgStructureAPI(self)
+        return self._orgstructure
 
     # ------------------------------------------------------------------
     # URL helper
@@ -241,6 +289,25 @@ class ZohoVerticalClient:
 
     def delete(self, path: str, params: Optional[Dict] = None) -> Any:
         return self._request("DELETE", path, params=params)
+
+    def upload(self, path: str, files: Dict, data: Optional[Dict] = None) -> Any:
+        """POST multipart/form-data (per upload file)."""
+        url     = self.build_url(path)
+        headers = self.auth.auth_header()
+        try:
+            response = self._session.request(
+                method="POST",
+                url=url,
+                headers=headers,
+                files=files,
+                data=data,
+                timeout=self.timeout,
+            )
+            return self._handle_response(response)
+        except ZohoAPIError:
+            raise
+        except Exception as exc:
+            raise ZohoAPIError(f"Upload failed: {exc}") from exc
 
     # ------------------------------------------------------------------
     # Core request logic

@@ -204,39 +204,18 @@ class PeopleEmployeeAPI:
             Lista di dipendenti normalizzata.
         """
         params: Dict[str, Any] = {
-            "sIndex":   page,
-            "resLen":   per_page,
-            "viewName": view_name,
+            "page":     page,
+            "per_page": per_page,
         }
         if search_value:
-            params["searchVal"] = search_value
+            params["searchValue"] = search_value
         if search_field:
             params["searchField"] = search_field
 
-        try:
-            data     = self._client.get("v3/employee/getRecords", params=params)
-            response = data.get("response", data)
-            result   = response.get("result", [])
-            if result and isinstance(result, list):
-                return self._normalize_list(result)
-        except Exception:
-            pass
-
-        # Fallback: endpoint interno legacy
-        tree = self._get_tree_web()
-        if tree is None:
-            return []
-
-        user_list  = _extract_user_list(tree)
+        data      = self._client.get("forms/json/P_EmployeeView/getRecords", params=params)
+        user_list = _extract_user_list(data)
         normalized = self._normalize_list(user_list)
 
-        if search_value:
-            q = search_value.lower()
-            normalized = [
-                e for e in normalized
-                if q in e.get("SurnameName", "").lower()
-                or q in e.get("Email", "").lower()
-            ]
         return normalized
 
     def search(self, query: str) -> List[Dict[str, Any]]:
@@ -262,7 +241,7 @@ class PeopleEmployeeAPI:
             ID dipendente (empId o eNo).
         """
         try:
-            data     = self._client.get("v3/employee/getRecordByID", params={"empId": employee_id})
+            data     = self._client.get("employee/getRecordByID", params={"empId": employee_id})
             response = data.get("response", data)
             result   = response.get("result", [])
             if result:
@@ -299,9 +278,9 @@ class PeopleEmployeeAPI:
         dict
             Con chiave ``"_normalized"`` — lista dizionari normalizzata.
         """
-        # 1. REST API v3
+        # 1. REST API
         try:
-            data     = self._client.get("v3/employee/getEmployeeTree", params={"erecno": employee_id})
+            data     = self._client.get("employee/getEmployeeTree", params={"erecno": employee_id})
             response = data.get("response", data)
             result   = response.get("result", _extract_user_list(data))
             if result and isinstance(result, list):
@@ -345,7 +324,7 @@ class PeopleEmployeeAPI:
         dict
             Risposta API con ``response.result.recordId`` del nuovo dipendente.
         """
-        return self._client.post("v3/employee/addRecord", json=record_data)
+        return self._client.post("employee/addRecord", json=record_data)
 
     def update_record(
         self,
@@ -370,7 +349,7 @@ class PeopleEmployeeAPI:
             Risposta API con esito dell'aggiornamento.
         """
         payload = {"empId": employee_id, **record_data}
-        return self._client.put("v3/employee/updateRecord", json=payload)
+        return self._client.put("employee/updateRecord", json=payload)
 
     # ------------------------------------------------------------------
     # Helper: normalizza la lista per compatibilità
