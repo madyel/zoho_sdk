@@ -61,7 +61,12 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════ #
 
 # Scope di default per timesheet + attendance + metadata
-DEFAULT_SCOPES = []
+DEFAULT_SCOPES = [
+    "ZohoPeople.attendance.ALL",
+    "ZohoPeople.timetracker.ALL",
+    "ZohoPeople.forms.ALL",
+    "ZohoPeople.leave.ALL",
+]
 
 # Data centre → (api_domain, accounts_url)
 DATA_CENTRES = {
