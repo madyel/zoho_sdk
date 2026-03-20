@@ -1,25 +1,27 @@
 """
-PeopleEmployeeAPI  –  Zoho People Employee REST API
-====================================================
+PeopleEmployeeAPI  –  Zoho People Employee REST API v3
+=======================================================
 
-Sostituisce il vecchio approccio cookie/CSRF con OAuth 2.0.
+Endpoint v3 ufficiali:
+    GET  /people/api/v3/employee/getRecords       – lista dipendenti
+    GET  /people/api/v3/employee/getRecordByID    – singolo dipendente
+    GET  /people/api/v3/employee/getEmployeeTree  – albero organizzativo
+    POST /people/api/v3/employee/addRecord        – aggiunge dipendente
+    PUT  /people/api/v3/employee/updateRecord     – aggiorna dipendente
 
-Mapping vecchio → nuovo
------------------------
-peopleAction()      →  client.employee.get_tree(eNo)
-findEmploy(user)    →  client.employee.search(user)
-userDetails(key)    →  client.employee.get_details()  (usa attendance.get_monthly)
-
-Vecchi endpoint web (richiedono cookie + CSRF, ma funzionano anche con OAuth):
+Endpoint interno legacy (fallback, richiede ZOHO_SERVICE_URL):
     POST /{org}/peopleAction.zp   mode=EMPLOYEE_TREE
 
-Endpoint REST ufficiali (fallback):
-    GET  /people/api/forms/json/P_EmployeeView/getRecords
+Scope OAuth richiesti: ZohoPeople.employee.ALL
 
-Scope OAuth richiesti: ZohoPeople.forms.ALL
-
-Riferimento API:
-    https://www.zoho.com/people/api-integration/employee.html
+Formato risposta v3:
+    {
+      "response": {
+        "status": 0,
+        "message": "Data retrieved successfully",
+        "result": [...]
+      }
+    }
 """
 
 from __future__ import annotations
@@ -31,7 +33,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 if TYPE_CHECKING:
     from .client import ZohoVerticalClient
 
-# Importa helper già usato in attendance
 from .attendance import _org_from_service_url
 from .exceptions import ZohoAPIError
 
@@ -39,18 +40,18 @@ from .exceptions import ZohoAPIError
 def _extract_user_list(raw: Dict[str, Any]) -> List[Any]:
     """
     Estrae la lista dipendenti da una risposta grezza, indipendentemente
-    dal formato (legacy peopleAction.zp oppure nuovo v5).
+    dal formato (legacy peopleAction.zp oppure v3).
 
     Formati gestiti:
       Legacy:  {"users": {"userList": [[...], ...]}}
-      v5 dict: {"data": [...]}
-      v5 list: {"response": {"result": [...]}}
+      v3 dict: {"data": [...]}
+      v3 list: {"response": {"result": [...]}}
       Fallback: primo valore che sia una lista nell'intera struttura
     """
     # Legacy
     if "users" in raw:
         return raw["users"].get("userList", [])
-    # v5 candidati
+    # v3 candidati
     for key in ("data", "employees", "result", "records"):
         val = raw.get(key)
         if isinstance(val, list):
@@ -67,13 +68,15 @@ def _extract_user_list(raw: Dict[str, Any]) -> List[Any]:
 
 class PeopleEmployeeAPI:
     """
-    Wrapper per le API Zoho People Employee.
+    Wrapper per le API Zoho People Employee v3.
 
     Usato tramite:
         client.employee.list()
         client.employee.search("Mario Rossi")
         client.employee.get(employee_id)
         client.employee.get_tree(employee_id)
+        client.employee.add_record(data)
+        client.employee.update_record(employee_id, data)
 
     Parameters
     ----------
@@ -85,45 +88,23 @@ class PeopleEmployeeAPI:
         self._client = client
 
     # ------------------------------------------------------------------
-    # URL helper endpoint interno (stesso pattern di PeopleAttendanceAPI)
+    # URL helper endpoint interno (legacy)
     # ------------------------------------------------------------------
 
     def _web_base_url(self) -> Optional[str]:
-        """
-        Restituisce l'URL base dell'endpoint interno se SERVICE_URL è configurato.
-        Es: https://people.zoho.com/relewanthrm
-        """
         if not self._client.service_url:
             return None
         org = _org_from_service_url(self._client.service_url)
         return f"{self._client.api_domain}/{org}"
 
     # ------------------------------------------------------------------
-    # Endpoint interno: peopleAction.zp  mode=EMPLOYEE_TREE
-    # Equivalente esatto del vecchio peopleAction()
+    # Endpoint interno legacy: peopleAction.zp  mode=EMPLOYEE_TREE
     # ------------------------------------------------------------------
 
     def _get_tree_web(self, employee_id: str = "") -> Optional[Dict[str, Any]]:
         """
-        Recupera l'albero dipendenti.
-
-        Prova in ordine:
-
-        1. GET ``/{org}/v5/tree/employee?mode=EMPLOYEE_TREE`` (nuovo endpoint REST)
-        2. POST ``/{org}/zp/peopleAction.zp``  mode=EMPLOYEE_TREE  (legacy)
-        3. POST ``/{org}/peopleAction.zp``      mode=EMPLOYEE_TREE  (legacy alt)
-
+        Recupera l'albero dipendenti via endpoint interno legacy.
         Restituisce None se SERVICE_URL non è configurato.
-        Risposta attesa (entrambe le varianti)::
-
-            {
-              "users": {
-                "userList": [
-                  [eNo, ?, ?, "Cognome Nome", empId, apiId, "email@...", ...],
-                  ...
-                ]
-              }
-            }
         """
         base = self._web_base_url()
         if not base:
@@ -131,10 +112,7 @@ class PeopleEmployeeAPI:
 
         last_exc: Optional[Exception] = None
 
-        # ------------------------------------------------------------------
-        # 1. Nuovo endpoint REST v5 — prova GET, poi POST; con e senza /zp/
-        #    Il formato risposta potrebbe differire dal legacy peopleAction.zp
-        # ------------------------------------------------------------------
+        # Nuovo endpoint REST v5
         v5_paths = [
             f"{base}/v5/tree/employee",
             f"{base}/zp/v5/tree/employee",
@@ -144,16 +122,14 @@ class PeopleEmployeeAPI:
 
         for v5_url in v5_paths:
             for params in ([v5_params_with_id, v5_params_base] if employee_id else [v5_params_base]):
-                # GET
                 try:
                     raw = self._client.get_absolute(v5_url, params=params)
                     if isinstance(raw, dict):
-                        return raw  # accetta qualunque formato v5
+                        return raw
                 except ZohoAPIError as exc:
                     last_exc = exc
                 except Exception as exc:
                     last_exc = exc
-                # POST form-encoded (stesso pattern del vecchio .zp)
                 try:
                     raw = self._client.form_post_absolute(v5_url, data=params)
                     if isinstance(raw, dict):
@@ -163,9 +139,7 @@ class PeopleEmployeeAPI:
                 except Exception as exc:
                     last_exc = exc
 
-        # ------------------------------------------------------------------
-        # 2. Endpoint legacy peopleAction.zp (POST form-encoded)
-        # ------------------------------------------------------------------
+        # Endpoint legacy peopleAction.zp
         legacy_urls = [
             f"{base}/zp/peopleAction.zp",
             f"{base}/peopleAction.zp",
@@ -190,8 +164,7 @@ class PeopleEmployeeAPI:
 
         if last_exc is not None:
             raise ZohoAPIError(
-                f"endpoint albero non raggiungibile "
-                f"(v5={v5_url}, legacy={legacy_urls}): {last_exc}"
+                f"endpoint albero non raggiungibile: {last_exc}"
             ) from last_exc
         return None
 
@@ -205,28 +178,43 @@ class PeopleEmployeeAPI:
         search_field: Optional[str] = None,
         page: int = 1,
         per_page: int = 200,
+        view_name: str = "Active_Employees",
     ) -> List[Dict[str, Any]]:
         """
-        Recupera la lista di tutti i dipendenti.
+        Recupera la lista di tutti i dipendenti via REST API v3.
 
-        Prova prima la REST API pubblica, poi l'endpoint interno
-        (``peopleAction.zp`` mode=EMPLOYEE_TREE) come fallback.
+        Endpoint: GET /people/api/v3/employee/getRecords
+
+        Parameters
+        ----------
+        search_value : str, optional
+            Valore da cercare (es. "Mario").
+        search_field : str, optional
+            Campo su cui filtrare (es. "FirstName", "Department").
+        page : int
+            Indice di partenza (sIndex), default 1.
+        per_page : int
+            Numero di record per pagina (resLen), max 200.
+        view_name : str
+            "Active_Employees" (default) oppure "Terminated".
 
         Returns
         -------
         list[dict]
-            Lista di dipendenti normalizzata con chiavi:
-            EmployeeRecordNumber, SurnameName, Email, EmployID, ApiID.
+            Lista di dipendenti normalizzata.
         """
-        # 1. REST API: GET /people/api/forms/json/P_EmployeeView/getRecords
-        params: Dict[str, Any] = {"page": page, "per_page": per_page}
+        params: Dict[str, Any] = {
+            "sIndex":   page,
+            "resLen":   per_page,
+            "viewName": view_name,
+        }
         if search_value:
-            params["searchValue"] = search_value
+            params["searchVal"] = search_value
         if search_field:
             params["searchField"] = search_field
 
         try:
-            data     = self._client.get("forms/json/P_EmployeeView/getRecords", params=params)
+            data     = self._client.get("v3/employee/getRecords", params=params)
             response = data.get("response", data)
             result   = response.get("result", [])
             if result and isinstance(result, list):
@@ -234,15 +222,14 @@ class PeopleEmployeeAPI:
         except Exception:
             pass
 
-        # 2. Fallback: endpoint interno peopleAction.zp
+        # Fallback: endpoint interno legacy
         tree = self._get_tree_web()
         if tree is None:
             return []
 
-        user_list = _extract_user_list(tree)
+        user_list  = _extract_user_list(tree)
         normalized = self._normalize_list(user_list)
 
-        # Filtra per search_value se richiesto (match case-insensitive su nome)
         if search_value:
             q = search_value.lower()
             normalized = [
@@ -256,12 +243,6 @@ class PeopleEmployeeAPI:
         """
         Cerca dipendenti per nome o email.
 
-        Equivale a findEmploy(user) del vecchio script::
-
-            for e in employeeTree['users']['userList']:
-                if user in e[3]:   # e[3] = SurnameName
-                    ...
-
         Parameters
         ----------
         query : str
@@ -271,26 +252,26 @@ class PeopleEmployeeAPI:
 
     def get(self, employee_id: str) -> Dict[str, Any]:
         """
-        Recupera i dettagli di un singolo dipendente dall'albero organizzativo.
+        Recupera i dettagli di un singolo dipendente.
 
-        Cerca nell'albero restituito da ``peopleAction.zp`` il dipendente
-        con EmployeeRecordNumber == employee_id.
+        Endpoint: GET /people/api/v3/employee/getRecordByID
 
         Parameters
         ----------
         employee_id : str
-            Numero record dipendente (eNo).
+            ID dipendente (empId o eNo).
         """
-        # Prima prova direttamente con l'erecno dell'utente specifico
-        tree = self._get_tree_web(employee_id)
-        if tree:
-            user_list = _extract_user_list(tree)
-            normalized = self._normalize_list(user_list)
-            for emp in normalized:
-                if emp.get("EmployeeRecordNumber") == employee_id:
-                    return emp
-            if normalized:
-                return normalized[0]
+        try:
+            data     = self._client.get("v3/employee/getRecordByID", params={"empId": employee_id})
+            response = data.get("response", data)
+            result   = response.get("result", [])
+            if result:
+                records = result if isinstance(result, list) else [result]
+                normalized = self._normalize_list(records)
+                if normalized:
+                    return normalized[0]
+        except Exception:
+            pass
 
         # Fallback: cerca nella lista completa
         all_employees = self.list()
@@ -300,67 +281,120 @@ class PeopleEmployeeAPI:
 
         return {}
 
-    # ------------------------------------------------------------------
-    # Albero dipendenti
-    # ------------------------------------------------------------------
-
     def get_tree(self, employee_id: str) -> Dict[str, Any]:
         """
         Recupera l'albero organizzativo del dipendente.
 
-        Tenta prima l'endpoint interno ``peopleAction.zp`` (richiede cookie di
-        sessione + CSRF, quindi funziona solo con auth legacy non-OAuth).
-        Se non disponibile, ricade sulla REST API pubblica restituendo la lista
-        completa dei dipendenti come ``_normalized``.
+        Prova prima la REST API v3, poi l'endpoint interno legacy.
+
+        Endpoint: GET /people/api/v3/employee/getEmployeeTree
 
         Parameters
         ----------
         employee_id : str
-            Numero record dipendente (eNo).
+            Numero record dipendente (erecno).
 
         Returns
         -------
         dict
             Con chiave ``"_normalized"`` — lista dizionari normalizzata.
-            Se disponibile via web, include anche ``"users"`` originale.
         """
-        # 1. Endpoint web (v5 REST o legacy peopleAction.zp)
+        # 1. REST API v3
+        try:
+            data     = self._client.get("v3/employee/getEmployeeTree", params={"erecno": employee_id})
+            response = data.get("response", data)
+            result   = response.get("result", _extract_user_list(data))
+            if result and isinstance(result, list):
+                return {**data, "_normalized": self._normalize_list(result)}
+            return {**data, "_normalized": []}
+        except ZohoAPIError:
+            pass
+
+        # 2. Endpoint interno legacy
         try:
             raw = self._get_tree_web(employee_id)
             if raw is not None:
                 user_list = _extract_user_list(raw)
                 return {**raw, "_normalized": self._normalize_list(user_list)}
         except ZohoAPIError:
-            pass  # nessun endpoint disponibile → REST API pubblica
+            pass
 
-        # 2. Fallback: REST API pubblica – lista tutti i dipendenti
+        # 3. Fallback: lista completa
         employees = self.list()
         return {"_normalized": employees}
 
     # ------------------------------------------------------------------
-    # Helper: normalizza la lista per compatibilità con findEmploy()
+    # Scrittura dipendenti
+    # ------------------------------------------------------------------
+
+    def add_record(self, record_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Aggiunge un nuovo dipendente.
+
+        Endpoint: POST /people/api/v3/employee/addRecord
+
+        Parameters
+        ----------
+        record_data : dict
+            Dati del dipendente. Campi comuni:
+            ``{"firstName": "Mario", "lastName": "Rossi",
+               "email": "mario.rossi@azienda.it", "department": "IT"}``
+
+        Returns
+        -------
+        dict
+            Risposta API con ``response.result.recordId`` del nuovo dipendente.
+        """
+        return self._client.post("v3/employee/addRecord", json=record_data)
+
+    def update_record(
+        self,
+        employee_id: str,
+        record_data: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Aggiorna i dati di un dipendente esistente.
+
+        Endpoint: PUT /people/api/v3/employee/updateRecord
+
+        Parameters
+        ----------
+        employee_id : str
+            ID dipendente (empId).
+        record_data : dict
+            Campi da aggiornare.
+
+        Returns
+        -------
+        dict
+            Risposta API con esito dell'aggiornamento.
+        """
+        payload = {"empId": employee_id, **record_data}
+        return self._client.put("v3/employee/updateRecord", json=payload)
+
+    # ------------------------------------------------------------------
+    # Helper: normalizza la lista per compatibilità
     # ------------------------------------------------------------------
 
     @staticmethod
     def _normalize_list(raw_list: List[Any]) -> List[Dict[str, Any]]:
         """
-        Converte la risposta grezza nella struttura del vecchio findEmploy()::
+        Converte la risposta grezza nella struttura normalizzata::
 
             {
-                "EmployeeRecordNumber": e[0],
-                "SurnameName":         e[3],
-                "Email":               html.unescape(e[6]),
-                "EmployID":            e[4],
-                "ApiID":               e[5],
+                "EmployeeRecordNumber": ...,
+                "SurnameName":         ...,
+                "Email":               ...,
+                "EmployID":            ...,
+                "ApiID":               ...,
             }
 
         Funziona sia con la risposta flat-list (vecchio formato / internal endpoint)
-        che con la risposta dict (REST API).
+        che con la risposta dict (REST API v3).
         """
         result = []
         for emp in raw_list:
             if isinstance(emp, list):
-                # Formato vecchio: [eNo, ?, ?, nome, empId, apiId, email, ...]
                 result.append({
                     "EmployeeRecordNumber": emp[0] if len(emp) > 0 else "",
                     "SurnameName":         emp[3] if len(emp) > 3 else "",
@@ -380,10 +414,7 @@ class PeopleEmployeeAPI:
 
     def find(self, query: str) -> str:
         """
-        Equivalente diretto di findEmploy(user) del vecchio script.
-
-        Restituisce il risultato come stringa JSON indentata, identica
-        all'output originale.
+        Cerca dipendenti e restituisce il risultato come stringa JSON.
 
         Parameters
         ----------

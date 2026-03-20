@@ -36,6 +36,7 @@ from .notifications import NotificationsAPI
 from .attendance import PeopleAttendanceAPI
 from .timesheet import PeopleTimesheetAPI
 from .employee import PeopleEmployeeAPI
+from .leave import PeopleLeaveAPI
 
 
 class ZohoVerticalClient:
@@ -102,6 +103,7 @@ class ZohoVerticalClient:
         self._attendance: Optional[PeopleAttendanceAPI] = None
         self._timesheet: Optional[PeopleTimesheetAPI] = None
         self._employee: Optional[PeopleEmployeeAPI] = None
+        self._leave: Optional[PeopleLeaveAPI] = None
 
     # ------------------------------------------------------------------
     # Sub-API accessors
@@ -160,6 +162,12 @@ class ZohoVerticalClient:
         if self._employee is None:
             self._employee = PeopleEmployeeAPI(self)
         return self._employee
+
+    @property
+    def leave(self) -> PeopleLeaveAPI:
+        if self._leave is None:
+            self._leave = PeopleLeaveAPI(self)
+        return self._leave
 
     # ------------------------------------------------------------------
     # URL helper

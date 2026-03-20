@@ -21,6 +21,7 @@ from .notifications import NotificationsAPI
 from .attendance import PeopleAttendanceAPI, time_to_seconds, seconds_to_time
 from .timesheet import PeopleTimesheetAPI
 from .employee import PeopleEmployeeAPI
+from .leave import PeopleLeaveAPI
 
 __version__ = "1.0.0"
 __author__ = "Zoho Vertical SDK"
@@ -44,4 +45,5 @@ __all__ = [
     "seconds_to_time",
     "PeopleTimesheetAPI",
     "PeopleEmployeeAPI",
+    "PeopleLeaveAPI",
 ]

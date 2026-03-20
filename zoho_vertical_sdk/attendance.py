@@ -1,6 +1,6 @@
 """
-PeopleAttendanceAPI  –  Zoho People Attendance
-===============================================
+PeopleAttendanceAPI  –  Zoho People Attendance v3 REST API
+===========================================================
 
 Supporta due modalità di accesso:
 
@@ -12,11 +12,17 @@ Supporta due modalità di accesso:
 
    Richiede: ZOHO_SERVICE_URL=/relewanthrm/zp (per estrarre l'org name)
 
-2. **REST API ufficiale** (fallback):
-   GET  /people/api/attendance/getUserReport  (sdate, edate, empId)
-   POST /people/api/attendance  (empId, checkIn, checkOut)
+2. **REST API v3** (fallback):
+   GET  /people/api/v3/attendance/getUserReport  (empId, sdate, edate in dd-MMM-yyyy)
+   GET  /people/api/v3/attendance/getAttendanceEntries  (empId, date in dd-MMM-yyyy)
+   POST /people/api/v3/attendance/checkIn  (empId, checkInTime HH:mm, date dd-MMM-yyyy)
+   POST /people/api/v3/attendance/checkOut (empId, checkOutTime HH:mm, date dd-MMM-yyyy)
+   POST /people/api/v3/attendance/addEntries  (bulk)
 
    Scope OAuth: ZohoPeople.attendance.ALL
+
+Formato data v3: dd-MMM-yyyy (es. 20-Mar-2026)
+Formato orario:  HH:mm (24h)
 
 Formato risposta endpoint interno (dayList con chiavi numeriche 0-based):
     {
@@ -66,6 +72,23 @@ def seconds_to_time(seconds: int) -> str:
     h = seconds // 3600
     m = (seconds % 3600) // 60
     return f"{h:02d}:{m:02d}"
+
+
+def _to_zoho_date(date_str: str) -> str:
+    """
+    Converte una data dal formato dd/MM/yyyy al formato v3 dd-MMM-yyyy.
+
+    Examples
+    --------
+    >>> _to_zoho_date("15/03/2026")  # → "15-Mar-2026"
+    """
+    d = datetime.strptime(date_str, "%d/%m/%Y")
+    return d.strftime("%d-%b-%Y")
+
+
+def _date_to_zoho(d: date) -> str:
+    """Converte un oggetto date nel formato v3 dd-MMM-yyyy."""
+    return d.strftime("%d-%b-%Y")
 
 
 # ---------------------------------------------------------------------------
@@ -125,7 +148,7 @@ def _normalize_web_response(raw: Any) -> Dict[str, Any]:
 
 def _normalize_user_report(raw: Any) -> Dict[str, Any]:
     """
-    Normalizza la risposta di ``attendance/getUserReport`` (REST API).
+    Normalizza la risposta di ``v3/attendance/getUserReport`` (REST API v3).
 
     La risposta reale è un **flat dict** keyed by date (yyyy-MM-dd)::
 
@@ -184,13 +207,17 @@ def _normalize_user_report(raw: Any) -> Dict[str, Any]:
 
 class PeopleAttendanceAPI:
     """
-    Wrapper per le API Zoho People Attendance.
+    Wrapper per le API Zoho People Attendance v3.
 
     Prova prima l'endpoint interno (se ZOHO_SERVICE_URL è configurato),
-    poi cade back sulla REST API pubblica.
+    poi cade back sulla REST API v3 pubblica.
 
     Usato tramite:
         client.attendance.get_monthly(employee_id, month, year)
+        client.attendance.get_range(employee_id, from_date, to_date)
+        client.attendance.get_entries(employee_id, day)
+        client.attendance.check_in(employee_id, date_str, check_in_time)
+        client.attendance.check_out(employee_id, date_str, check_out_time)
         client.attendance.add(employee_id, date_str, "09:00", "18:00")
         client.attendance.add_bulk(employee_id, records)
     """
@@ -225,9 +252,6 @@ class PeopleAttendanceAPI:
         """
         Recupera presenze via endpoint interno AttendanceViewAction.zp.
         Restituisce None se SERVICE_URL non è configurato.
-
-        Prova prima senza userId (utente corrente), poi con userId=employee_id
-        se la prima chiamata fallisce o restituisce "Invalid User".
         """
         base = self._web_base_url()
         if not base:
@@ -239,9 +263,7 @@ class PeopleAttendanceAPI:
         dr        = f"{first_day.strftime('%d/%m/%Y')},{last_day.strftime('%d/%m/%Y')}"
 
         for params in [
-            # 1. Senza userId → utente del token OAuth
             {"dateRange": dr, "dateFormat": "dd/MM/yyyy"},
-            # 2. Con userId esplicito (erecno numerico)
             {"userId": employee_id, "dateRange": dr, "dateFormat": "dd/MM/yyyy"},
         ]:
             try:
@@ -258,7 +280,7 @@ class PeopleAttendanceAPI:
         return None
 
     # ------------------------------------------------------------------
-    # Lettura presenze – REST API (getUserReport)
+    # Lettura presenze – REST API v3 (getUserReport)
     # ------------------------------------------------------------------
 
     def _get_monthly_rest(
@@ -268,31 +290,30 @@ class PeopleAttendanceAPI:
         year: int,
     ) -> Dict[str, Any]:
         """
-        Recupera presenze via REST API attendance/getUserReport.
+        Recupera presenze via REST API v3 attendance/getUserReport.
 
         Prova prima senza empId (utente corrente del token OAuth),
         poi con empId=employee_id se la prima chiamata non restituisce dati.
         """
         first_day = date(year, month, 1)
         last_day  = date(year, month, calendar.monthrange(year, month)[1])
-        sdate     = first_day.strftime("%d/%m/%Y")
-        edate     = last_day.strftime("%d/%m/%Y")
+        sdate     = _date_to_zoho(first_day)
+        edate     = _date_to_zoho(last_day)
 
         base_params = self._client.people_params({
-            "sdate":      sdate,
-            "edate":      edate,
-            "dateFormat": "dd/MM/yyyy",
+            "sdate": sdate,
+            "edate": edate,
         })
 
         # 1. Senza empId → restituisce dati dell'utente autenticato
-        raw = self._client.get("attendance/getUserReport", params=base_params)
+        raw = self._client.get("v3/attendance/getUserReport", params=base_params)
         result = _normalize_user_report(raw)
         if result.get("dayList"):
             return result
 
         # 2. Con empId esplicito
         params_with_id = {**base_params, "empId": employee_id}
-        raw2   = self._client.get("attendance/getUserReport", params=params_with_id)
+        raw2   = self._client.get("v3/attendance/getUserReport", params=params_with_id)
         return _normalize_user_report(raw2)
 
     # ------------------------------------------------------------------
@@ -309,7 +330,7 @@ class PeopleAttendanceAPI:
         Recupera il riepilogo presenze mensile.
 
         Prova prima l'endpoint interno (se ZOHO_SERVICE_URL è configurato),
-        poi la REST API pubblica getUserReport.
+        poi la REST API v3 pubblica getUserReport.
 
         Returns
         -------
@@ -324,13 +345,12 @@ class PeopleAttendanceAPI:
         if result is not None:
             day_list = result.get("dayList", {})
             raw      = result.get("_raw", {})
-            # Controlla se è una risposta di errore
             if isinstance(raw, dict) and raw.get("response") == "failure":
-                pass  # lascia cadere sulla REST API
+                pass
             elif day_list or isinstance(raw, dict):
                 return result
 
-        # 2. Fallback REST API
+        # 2. Fallback REST API v3
         return self._get_monthly_rest(employee_id, month, year)
 
     def get_range(
@@ -338,42 +358,43 @@ class PeopleAttendanceAPI:
         employee_id: str,
         from_date: str,
         to_date: str,
-        date_format: str = "dd/MM/yyyy",
     ) -> Dict[str, Any]:
         """
-        Recupera le presenze per un intervallo di date via REST API.
+        Recupera le presenze per un intervallo di date via REST API v3.
 
         Parameters
         ----------
         from_date, to_date : str
-            Date nel formato dd/MM/yyyy.
+            Date nel formato dd/MM/yyyy (vengono convertite in dd-MMM-yyyy per v3).
         """
         params = self._client.people_params({
-            "empId":      employee_id,
-            "sdate":      from_date,
-            "edate":      to_date,
-            "dateFormat": date_format,
+            "empId": employee_id,
+            "sdate": _to_zoho_date(from_date),
+            "edate": _to_zoho_date(to_date),
         })
-        raw = self._client.get("attendance/getUserReport", params=params)
+        raw = self._client.get("v3/attendance/getUserReport", params=params)
         return _normalize_user_report(raw)
 
     def get_entries(
         self,
         employee_id: str,
         day: str,
-        date_format: str = "dd/MM/yyyy",
     ) -> Any:
         """
         Recupera le singole timbrature per un giorno.
 
-        Endpoint: GET /people/api/attendance/getAttendanceEntries
+        Endpoint: GET /people/api/v3/attendance/getAttendanceEntries
+
+        Parameters
+        ----------
+        day : str
+            Data in formato dd/MM/yyyy.
         """
         params = self._client.people_params({
-            "empId":      employee_id,
-            "date":       day,
-            "dateFormat": date_format,
+            "empId": employee_id,
+            "date":  _to_zoho_date(day),
         })
-        return self._client.get("attendance/getAttendanceEntries", params=params)
+        return self._client.get("v3/attendance/getAttendanceEntries", params=params)
 
     # ------------------------------------------------------------------
     # Invio presenze – endpoint interno (AttendanceAction.zp)
@@ -392,7 +413,7 @@ class PeopleAttendanceAPI:
         Parameters
         ----------
         employee_no : str
-            Numero record dipendente (eNo) — es. "439215000007867001".
+            Numero record dipendente (eNo).
         date_str : str
             Data in formato dd/MM/yyyy.
         check_in, check_out : str
@@ -428,8 +449,62 @@ class PeopleAttendanceAPI:
         return self._client.form_post_absolute(url, data=payload)
 
     # ------------------------------------------------------------------
-    # Interfaccia pubblica – invio
+    # Interfaccia pubblica – invio singolo
     # ------------------------------------------------------------------
+
+    def check_in(
+        self,
+        employee_id: str,
+        date_str: str,
+        check_in_time: str = "09:00",
+    ) -> Dict[str, Any]:
+        """
+        Registra la timbratura di ingresso via REST API v3.
+
+        Endpoint: POST /people/api/v3/attendance/checkIn
+
+        Parameters
+        ----------
+        employee_id : str
+            ID dipendente (empId).
+        date_str : str
+            Data in formato dd/MM/yyyy.
+        check_in_time : str
+            Orario HH:MM (es. "09:00").
+        """
+        payload = self._client.people_params({
+            "empId":        employee_id,
+            "checkInTime":  check_in_time,
+            "date":         _to_zoho_date(date_str),
+        })
+        return self._client.form_post("v3/attendance/checkIn", data=payload)
+
+    def check_out(
+        self,
+        employee_id: str,
+        date_str: str,
+        check_out_time: str = "18:00",
+    ) -> Dict[str, Any]:
+        """
+        Registra la timbratura di uscita via REST API v3.
+
+        Endpoint: POST /people/api/v3/attendance/checkOut
+
+        Parameters
+        ----------
+        employee_id : str
+            ID dipendente (empId).
+        date_str : str
+            Data in formato dd/MM/yyyy.
+        check_out_time : str
+            Orario HH:MM (es. "18:00").
+        """
+        payload = self._client.people_params({
+            "empId":         employee_id,
+            "checkOutTime":  check_out_time,
+            "date":          _to_zoho_date(date_str),
+        })
+        return self._client.form_post("v3/attendance/checkOut", data=payload)
 
     def add(
         self,
@@ -437,13 +512,12 @@ class PeopleAttendanceAPI:
         date_str: str,
         check_in: str = "09:00",
         check_out: str = "18:00",
-        date_format: str = "dd/MM/yyyy",
     ) -> Dict[str, Any]:
         """
         Registra la presenza per un singolo giorno.
 
-        Prova prima l'endpoint interno (se ZOHO_SERVICE_URL è configurato)
-        con il formato erecno/ftime/ttime del vecchio script, poi la REST API.
+        Prova prima l'endpoint interno (se ZOHO_SERVICE_URL è configurato),
+        poi la REST API v3 (addEntries).
 
         Parameters
         ----------
@@ -459,17 +533,14 @@ class PeopleAttendanceAPI:
         if result is not None:
             return result
 
-        # 2. Fallback REST API (empId + checkIn/checkOut in datetime format)
-        check_in_dt  = f"{date_str} {check_in}:00"
-        check_out_dt = f"{date_str} {check_out}:00"
-
+        # 2. Fallback REST API v3
         payload = self._client.people_params({
-            "empId":      employee_id,
-            "checkIn":    check_in_dt,
-            "checkOut":   check_out_dt,
-            "dateFormat": date_format,
+            "empId":    employee_id,
+            "checkIn":  check_in,
+            "checkOut": check_out,
+            "date":     _to_zoho_date(date_str),
         })
-        return self._client.form_post("attendance", data=payload)
+        return self._client.form_post("v3/attendance/addEntries", data=payload)
 
     def add_bulk(
         self,
@@ -508,7 +579,6 @@ class PeopleAttendanceAPI:
     # ------------------------------------------------------------------
 
     # Status che indicano "giorno non lavorativo" — da saltare
-    # Zoho People può restituire status in italiano o inglese
     _SKIP_STATUSES = frozenset({
         # Inglese
         "Weekend", "Holiday", "Leave", "Present",
@@ -536,7 +606,7 @@ class PeopleAttendanceAPI:
         Restituisce le date assenti/vuote dal dayList di get_monthly().
 
         Un giorno è "assente" se:
-        - status è "Absent" / "Assente" (esplicitamente segnato assente), oppure
+        - status è "Absent" / "Assente" E tHrs == "00:00", oppure
         - status è "" (non ancora registrato) e tHrs == "00:00"
 
         Vengono esclusi i giorni Weekend, Holiday, festività (pattern
@@ -546,9 +616,9 @@ class PeopleAttendanceAPI:
         -------
         list[str]  Date in formato dd/MM/yyyy (dal campo ldate).
         """
-        skip    = PeopleAttendanceAPI._SKIP_STATUSES
-        absent  = PeopleAttendanceAPI._ABSENT_STATUSES
-        result  = []
+        skip   = PeopleAttendanceAPI._SKIP_STATUSES
+        absent = PeopleAttendanceAPI._ABSENT_STATUSES
+        result = []
 
         for date_key, day in day_list.items():
             status = day.get("status", day.get("Status", ""))
@@ -559,7 +629,8 @@ class PeopleAttendanceAPI:
                 continue
             if PeopleAttendanceAPI._is_holiday(status):
                 continue
-            if status in absent or (status == "" and t_hrs == "00:00"):
+            # Assente solo se non ha ore registrate
+            if (status in absent or status == "") and t_hrs == "00:00":
                 result.append(ldate)
 
         return result

@@ -138,15 +138,14 @@ class PeopleTimesheetAPI:
             "toDate":     to_date,
             "dateFormat": date_format,
         }
-        result: Dict[str, Any] = {}
-        for params in [base_params, {**base_params, "userId": employee_id}]:
-            try:
-                result = self._client.get("timetracker/getTimesheetLog", params=params)
-            except Exception:
-                continue
+        params = {**base_params, "userId": employee_id}
+        try:
+            result = self._client.get("timetracker/getTimesheetLog", params=params)
             if isinstance(result, dict) and result.get("response") != "failure":
                 return result
-        return result
+        except Exception:
+            pass
+        return {}
 
     def get_monthly(
         self,
@@ -310,7 +309,7 @@ class PeopleTimesheetAPI:
         hours_per_day: str = "8",
         bill_status: str = "0",
         skip_dates: Optional[set] = None,
-        skip_weekends: bool = True,
+        skip_weekends: bool = False,
     ) -> Dict[str, Any]:
         """
         Costruisce la struttura logParams richiesta dall'API addtimesheet.
@@ -339,7 +338,8 @@ class PeopleTimesheetAPI:
         skip_dates : set[str], optional
             Set di date in formato YYYY-MM-DD da saltare (giorni di ferie/permesso).
         skip_weekends : bool
-            Se True (default) salta sabati e domeniche automaticamente.
+            Se True salta sabati e domeniche automaticamente.
+            Default False: Zoho People gestisce i weekend server-side.
 
         Returns
         -------
