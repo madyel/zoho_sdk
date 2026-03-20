@@ -182,27 +182,18 @@ def example_02_employee_list():
         return
 
     try:
-        employees = client.employee.list(per_page=5)
+        employees = client.employee.list()
         ok(f"Dipendenti ricevuti: {len(employees)}")
         for e in employees[:5]:
-            if isinstance(e, dict):
-                name   = e.get("fullName") or e.get("name", "?")
-                emp_id = e.get("eNo") or e.get("empId", "?")
-                email  = e.get("emailId") or e.get("email", "")
-                print(f"    • [{emp_id}]  {name:30}  {email}")
-            else:
-                print(f"    • {e}")
+            eno   = e.get("EmployeeRecordNumber", "?")
+            name  = e.get("SurnameName", "?")
+            email = e.get("Email", "")
+            eid   = e.get("EmployID", "")
+            print(f"    • [{eno}]  {name:35}  {eid}  {email}")
+        if len(employees) > 5:
+            info(f"  … e altri {len(employees) - 5}")
     except ZohoAPIError as e:
         err(f"Lista dipendenti: {e}")
-        info("Provo path alternativi per trovare l'endpoint corretto:")
-        for alt_path in ["employee", "forms/P_Employee/getRecords", "forms/P_EmployeeView/getRecords", "v2/employee"]:
-            try:
-                raw = client.get(alt_path)
-                ok(f"  ✅  Funziona: /people/api/{alt_path}")
-                dump(f"  risposta", raw)
-                break
-            except ZohoAPIError as ex2:
-                info(f"  ❌  /people/api/{alt_path} → {ex2}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -245,8 +236,16 @@ def example_04_employee_get():
 
     try:
         data = client.employee.get(EMPLOYEE_ID)
-        ok(f"Risposta ricevuta")
-        dump("employee.get()", data)
+        if data:
+            ok(f"Risposta ricevuta")
+            name  = data.get("SurnameName", "?")
+            email = data.get("Email", "?")
+            eid   = data.get("EmployID", "?")
+            print(f"    Nome:  {name}")
+            print(f"    Email: {email}")
+            print(f"    EmpID: {eid}")
+        else:
+            warn("Dipendente non trovato nell'albero")
     except ZohoAPIError as e:
         err(f"Get employee: {e}")
 
@@ -268,8 +267,17 @@ def example_05_employee_tree():
 
     try:
         tree = client.employee.get_tree(EMPLOYEE_ID)
+        if not tree:
+            warn("get_tree() ha restituito {} — SERVICE_URL impostato?")
+            return
         ok("Albero ricevuto")
-        dump("employee.get_tree()", tree)
+        normalized = tree.get("_normalized", [])
+        info(f"Dipendenti nell'albero: {len(normalized)}")
+        for emp in normalized[:5]:
+            print(f"    • [{emp.get('EmployeeRecordNumber','?')}]  "
+                  f"{emp.get('SurnameName','?'):35}  {emp.get('EmployID','')}")
+        if len(normalized) > 5:
+            info(f"  … e altri {len(normalized) - 5}")
     except ZohoAPIError as e:
         err(f"Albero: {e}")
 
