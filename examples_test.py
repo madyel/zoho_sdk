@@ -124,7 +124,7 @@ API_DOMAIN     = os.getenv("ZOHO_API_DOMAIN",     "https://people.zoho.com")
 
 # Moduli di esempio su cui eseguire le operazioni CRUD
 # → Cambia con i nomi reali del tuo account
-TEST_MODULE    = os.getenv("ZOHO_TEST_MODULE",    "Leads")
+TEST_MODULE    = os.getenv("ZOHO_TEST_MODULE",    "Employee")
 TEST_RECORD_ID = os.getenv("ZOHO_TEST_RECORD_ID", "")   # ID record esistente per get/update
 
 # Variabile globale del client (inizializzata alla sezione 1/2/3)
