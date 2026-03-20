@@ -204,12 +204,26 @@ class ZohoVerticalClient:
     def get(self, path: str, params: Optional[Dict] = None) -> Any:
         return self._request("GET", path, params=params)
 
+    def get_absolute(self, url: str, params: Optional[Dict] = None) -> Any:
+        """
+        GET su un URL assoluto (bypassando il build_url standard).
+
+        Usato per chiamare endpoint interni Zoho People (es. /{org}/AttendanceViewAction.zp)
+        che non fanno parte del percorso /people/api/.
+        L'header Authorization viene aggiunto come per le richieste normali.
+        """
+        return self._request_absolute("GET", url, params=params)
+
     def post(self, path: str, json: Optional[Dict] = None, params: Optional[Dict] = None) -> Any:
         return self._request("POST", path, json=json, params=params)
 
     def form_post(self, path: str, data: Dict, params: Optional[Dict] = None) -> Any:
         """POST with application/x-www-form-urlencoded body (required by Zoho People APIs)."""
         return self._request("POST", path, data=data, params=params)
+
+    def form_post_absolute(self, url: str, data: Dict, params: Optional[Dict] = None) -> Any:
+        """POST form-encoded su un URL assoluto (per endpoint interni .zp)."""
+        return self._request_absolute("POST", url, data=data, params=params)
 
     def put(self, path: str, json: Optional[Dict] = None, params: Optional[Dict] = None) -> Any:
         return self._request("PUT", path, json=json, params=params)
@@ -223,6 +237,30 @@ class ZohoVerticalClient:
     # ------------------------------------------------------------------
     # Core request logic
     # ------------------------------------------------------------------
+
+    def _request_absolute(
+        self,
+        method: str,
+        url: str,
+        params: Optional[Dict] = None,
+        data: Optional[Dict] = None,
+    ) -> Any:
+        """Come _request ma accetta un URL assoluto (non usa build_url)."""
+        headers = self.auth.auth_header()
+        try:
+            response = self._session.request(
+                method=method,
+                url=url,
+                headers=headers,
+                params=params,
+                data=data,
+                timeout=self.timeout,
+            )
+            return self._handle_response(response)
+        except ZohoAPIError:
+            raise
+        except Exception as exc:
+            raise ZohoAPIError(f"Request failed: {exc}") from exc
 
     def _request(
         self,
