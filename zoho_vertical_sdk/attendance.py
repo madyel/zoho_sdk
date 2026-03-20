@@ -517,10 +517,18 @@ class PeopleAttendanceAPI:
         "Permesso retribuito", "Malattia",
     })
 
+    # Suffissi che indicano una festività (es. "San Giuseppe(Vacanza)")
+    _HOLIDAY_SUFFIXES = ("(Vacanza)", "(Holiday)", "(Festività)")
+
     # Status che indicano "assente" (da registrare)
     _ABSENT_STATUSES = frozenset({
         "Absent", "Assente",
     })
+
+    @staticmethod
+    def _is_holiday(status: str) -> bool:
+        """True se lo status indica una festività (es. 'San Giuseppe(Vacanza)')."""
+        return any(status.endswith(suf) for suf in PeopleAttendanceAPI._HOLIDAY_SUFFIXES)
 
     @staticmethod
     def absent_days_from_daylist(day_list: Dict[str, Any]) -> List[str]:
@@ -531,7 +539,8 @@ class PeopleAttendanceAPI:
         - status è "Absent" / "Assente" (esplicitamente segnato assente), oppure
         - status è "" (non ancora registrato) e tHrs == "00:00"
 
-        Vengono esclusi i giorni Weekend, Holiday, Leave (anche in italiano).
+        Vengono esclusi i giorni Weekend, Holiday, festività (pattern
+        ``NomeFestività(Vacanza)``), Leave (anche in italiano).
 
         Returns
         -------
@@ -547,6 +556,8 @@ class PeopleAttendanceAPI:
             ldate  = day.get("ldate",  date_key)
 
             if status in skip:
+                continue
+            if PeopleAttendanceAPI._is_holiday(status):
                 continue
             if status in absent or (status == "" and t_hrs == "00:00"):
                 result.append(ldate)

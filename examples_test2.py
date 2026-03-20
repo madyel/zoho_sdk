@@ -603,13 +603,17 @@ def example_12_timesheet_build_log_params():
         skip("ZOHO_JOB_ID non impostato nel .env – imposta il job ID dalla sezione 10")
         return
 
-    import calendar
-    num_days = calendar.monthrange(TEST_YEAR, TEST_MONTH)[1]
+    import calendar as _cal
+    num_days    = _cal.monthrange(TEST_YEAR, TEST_MONTH)[1]
+    num_weekend = sum(
+        1 for n in range(1, num_days + 1)
+        if date(TEST_YEAR, TEST_MONTH, n).weekday() >= 5
+    )
 
-    # Simula 2 giorni di ferie
+    # Simula 2 giorni di ferie (lavorativi)
     fake_leave = {
-        date(TEST_YEAR, TEST_MONTH, 1).strftime("%Y-%m-%d"),
-        date(TEST_YEAR, TEST_MONTH, 2).strftime("%Y-%m-%d"),
+        date(TEST_YEAR, TEST_MONTH, 3).strftime("%Y-%m-%d"),
+        date(TEST_YEAR, TEST_MONTH, 4).strftime("%Y-%m-%d"),
     }
 
     log_params = PeopleTimesheetAPI.build_log_params(
@@ -619,10 +623,14 @@ def example_12_timesheet_build_log_params():
         hours_per_day="8",
         bill_status="0",
         skip_dates=fake_leave,
+        skip_weekends=True,
     )
 
-    entries = log_params["logParams"]
-    ok(f"logParams costruiti: {len(entries)} voci  (su {num_days} giorni, 2 saltati)")
+    entries      = log_params["logParams"]
+    expected_max = num_days - num_weekend
+    ok(f"logParams costruiti: {len(entries)} voci  "
+       f"(su {num_days} giorni: {num_weekend} weekend + 2 ferie simulate saltati, "
+       f"max lavorativi={expected_max})")
 
     info("Primi 3 entry:")
     for e in entries[:3]:

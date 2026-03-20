@@ -131,13 +131,21 @@ class PeopleTimesheetAPI:
             - tsArr vuoto   → timesheet non ancora inviato (OK per procedere)
             - tsArr non vuoto → già inviato (equivale al check del vecchio script)
         """
-        params = {
-            "userId":     employee_id,
+        # Prova prima senza userId (utente OAuth corrente),
+        # poi con userId esplicito se la prima risposta è vuota/errore.
+        base_params = {
             "fromDate":   from_date,
             "toDate":     to_date,
             "dateFormat": date_format,
         }
-        return self._client.get("timetracker/getTimesheetLog", params=params)
+        for params in [base_params, {**base_params, "userId": employee_id}]:
+            try:
+                result = self._client.get("timetracker/getTimesheetLog", params=params)
+            except Exception:
+                continue
+            if isinstance(result, dict) and result.get("response") != "failure":
+                return result
+        return result  # type: ignore[return-value]
 
     def get_monthly(
         self,
@@ -301,6 +309,7 @@ class PeopleTimesheetAPI:
         hours_per_day: str = "8",
         bill_status: str = "0",
         skip_dates: Optional[set] = None,
+        skip_weekends: bool = True,
     ) -> Dict[str, Any]:
         """
         Costruisce la struttura logParams richiesta dall'API addtimesheet.
@@ -327,7 +336,9 @@ class PeopleTimesheetAPI:
         bill_status : str
             "0" = non fatturabile, "1" = fatturabile.
         skip_dates : set[str], optional
-            Set di date in formato YYYY-MM-DD da saltare (giorni di ferie).
+            Set di date in formato YYYY-MM-DD da saltare (giorni di ferie/permesso).
+        skip_weekends : bool
+            Se True (default) salta sabati e domeniche automaticamente.
 
         Returns
         -------
@@ -341,12 +352,15 @@ class PeopleTimesheetAPI:
         log_params: List[Dict[str, str]] = []
 
         for n in range(1, num_days + 1):
-            day_iso = date(year, month, n).strftime("%Y-%m-%d")
+            d       = date(year, month, n)
+            day_iso = d.strftime("%Y-%m-%d")
+            if skip_weekends and d.weekday() >= 5:  # 5=sabato, 6=domenica
+                continue
             if day_iso in skip_dates:
                 continue
             entry = {
-                f"day{n}":   hours_per_day,
-                "jobId":     job_id,
+                f"day{n}":    hours_per_day,
+                "jobId":      job_id,
                 "billStatus": bill_status,
             }
             log_params.append(entry)
