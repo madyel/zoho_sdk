@@ -33,6 +33,7 @@ from .metadata import MetadataAPI
 from .query import QueryAPI
 from .bulk import BulkAPI
 from .notifications import NotificationsAPI
+from .attendance import PeopleAttendanceAPI
 
 
 class ZohoVerticalClient:
@@ -91,6 +92,7 @@ class ZohoVerticalClient:
         self._query: Optional[QueryAPI] = None
         self._bulk: Optional[BulkAPI] = None
         self._notifications: Optional[NotificationsAPI] = None
+        self._attendance: Optional[PeopleAttendanceAPI] = None
 
     # ------------------------------------------------------------------
     # Sub-API accessors
@@ -132,6 +134,12 @@ class ZohoVerticalClient:
             self._notifications = NotificationsAPI(self)
         return self._notifications
 
+    @property
+    def attendance(self) -> PeopleAttendanceAPI:
+        if self._attendance is None:
+            self._attendance = PeopleAttendanceAPI(self)
+        return self._attendance
+
     # ------------------------------------------------------------------
     # URL helper
     # ------------------------------------------------------------------
@@ -152,6 +160,10 @@ class ZohoVerticalClient:
     def post(self, path: str, json: Optional[Dict] = None, params: Optional[Dict] = None) -> Any:
         return self._request("POST", path, json=json, params=params)
 
+    def form_post(self, path: str, data: Dict, params: Optional[Dict] = None) -> Any:
+        """POST with application/x-www-form-urlencoded body (required by Zoho People APIs)."""
+        return self._request("POST", path, data=data, params=params)
+
     def put(self, path: str, json: Optional[Dict] = None, params: Optional[Dict] = None) -> Any:
         return self._request("PUT", path, json=json, params=params)
 
@@ -171,6 +183,7 @@ class ZohoVerticalClient:
         path: str,
         params: Optional[Dict] = None,
         json: Optional[Dict] = None,
+        data: Optional[Dict] = None,
     ) -> Any:
         url = self.build_url(path)
         headers = self.auth.auth_header()
@@ -186,6 +199,7 @@ class ZohoVerticalClient:
                     headers=headers,
                     params=params,
                     json=json,
+                    data=data,
                     timeout=self.timeout,
                 )
                 return self._handle_response(response)

@@ -18,6 +18,7 @@ from .metadata import MetadataAPI
 from .query import QueryAPI
 from .bulk import BulkAPI
 from .notifications import NotificationsAPI
+from .attendance import PeopleAttendanceAPI, time_to_seconds, seconds_to_time
 
 __version__ = "1.0.0"
 __author__ = "Zoho Vertical SDK"
@@ -36,4 +37,7 @@ __all__ = [
     "QueryAPI",
     "BulkAPI",
     "NotificationsAPI",
+    "PeopleAttendanceAPI",
+    "time_to_seconds",
+    "seconds_to_time",
 ]
