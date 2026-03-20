@@ -108,7 +108,7 @@ CLIENT_ID      = os.getenv("ZOHO_CLIENT_ID",      "")
 CLIENT_SECRET  = os.getenv("ZOHO_CLIENT_SECRET",  "")
 REFRESH_TOKEN  = os.getenv("ZOHO_REFRESH_TOKEN",  "")
 ACCOUNTS_URL   = os.getenv("ZOHO_ACCOUNTS_URL",   "https://accounts.zoho.com")
-API_DOMAIN     = os.getenv("ZOHO_API_DOMAIN",     "https://zohoverticalapis.com")
+API_DOMAIN     = os.getenv("ZOHO_API_DOMAIN",     "https://people.zoho.com")
 
 # Moduli di esempio su cui eseguire le operazioni CRUD
 # → Cambia con i nomi reali del tuo account
