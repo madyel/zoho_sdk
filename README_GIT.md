@@ -21,7 +21,7 @@ Al primo avvio chiederà:
 2. **Client Secret** → stessa pagina
 
 Poi aprirà il browser sulla Developer Console e chiederà di incollare
-l'Authorization Code (operazione una-tantum, ~30 secondi).
+l'Authorization Code (operazione una tantum, ~30 secondi).
 
 Da quel momento in poi il software si avvia senza chiedere nulla.
 
