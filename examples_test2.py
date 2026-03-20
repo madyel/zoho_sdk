@@ -265,10 +265,16 @@ def example_05_employee_tree():
         skip("Imposta ZOHO_EMPLOYEE_ID con un eNo reale (es. P-000042)")
         return
 
+    svc = client.service_url or "(non impostato)"
+    info(f"client.service_url = {svc!r}")
+    if not client.service_url:
+        warn("ZOHO_SERVICE_URL non impostato → imposta es. ZOHO_SERVICE_URL=relewanthrm/peopleAction.zp")
+        return
+
     try:
         tree = client.employee.get_tree(EMPLOYEE_ID)
         if not tree:
-            warn("get_tree() ha restituito {} — SERVICE_URL impostato?")
+            warn("get_tree() ha restituito {} — nessun dato trovato")
             return
         ok("Albero ricevuto")
         normalized = tree.get("_normalized", [])
