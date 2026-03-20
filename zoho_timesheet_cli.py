@@ -136,79 +136,146 @@ def confirm(prompt: str, default: bool = True) -> bool:
 #  Connessione – completamente automatica via ZohoAuthManager                #
 # ═══════════════════════════════════════════════════════════════════════════ #
 
+CONFIG_FILE = Path(__file__).parent / "zoho_config.json"
+CREDS_FILE  = Path.home() / ".zoho_credentials.json"
+
+
+def _load_config() -> dict:
+    """Legge zoho_config.json (solo client_id e data_centre, NON segreti)."""
+    if CONFIG_FILE.exists():
+        try:
+            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+def _save_config(client_id: str, dc: str) -> None:
+    """Salva client_id e data_centre in zoho_config.json."""
+    data = {
+        "_comment": "Contiene solo client_id e data_centre (NON segreti). "
+                    "Le credenziali sensibili sono in ~/.zoho_credentials.json",
+        "client_id":   client_id,
+        "data_centre": dc,
+    }
+    try:
+        CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except Exception as e:
+        warn(f"Impossibile salvare la configurazione: {e}")
+
+
 def setup_client() -> ZohoVerticalClient:
     """
-    Gestisce l'autenticazione in modo completamente automatico:
+    Gestisce l'autenticazione in modo completamente automatico.
 
-    - Primo avvio: chiede Client ID e Client Secret (una volta sola),
-      poi guida l'utente a generare e incollare l'Authorization Code,
-      scambia il code con i token e li salva su ~/.zoho_credentials.json
+    Strategia (in ordine di priorità):
+      1. Variabili d'ambiente ZOHO_CLIENT_ID + ZOHO_CLIENT_SECRET
+      2. zoho_config.json  (client_id) + ~/.zoho_credentials.json (segreti cifrati)
+      3. Input interattivo da terminale (solo al primo avvio)
 
-    - Avvii successivi: carica le credenziali salvate e rinnova
-      silenziosamente l'access token se necessario.
-
-    Non viene mai chiesto di inserire manualmente un access token.
+    Dal secondo avvio in poi non viene chiesto nulla:
+    client_id  →  zoho_config.json       (testo in chiaro, non sensibile)
+    segreti    →  ~/.zoho_credentials.json (cifrati con XOR + base64)
     """
     header("🔐  Autenticazione Zoho Vertical Studio")
 
-    # ── Leggi Client ID e Secret ─────────────────────────────────────────
-    client_id     = os.getenv("ZOHO_CLIENT_ID", "")
+    cfg = _load_config()
+
+    # ── 1. Prova env vars ─────────────────────────────────────────────────
+    client_id     = os.getenv("ZOHO_CLIENT_ID",     cfg.get("client_id", ""))
     client_secret = os.getenv("ZOHO_CLIENT_SECRET", "")
+    dc            = os.getenv("ZOHO_DATA_CENTRE",   cfg.get("data_centre", "EU")).upper()
 
-    if client_id and client_secret:
-        info("Client ID e Secret caricati da variabili d'ambiente")
-    else:
-        # Prova a caricarli dal file credenziali (potrebbero già esserci
-        # da una sessione precedente — ZohoAuthManager li gestisce interno)
-        creds_file = Path.home() / ".zoho_credentials.json"
-        if creds_file.exists():
-            # Il manager caricherà tutto da solo
-            info(f"Credenziali trovate in {creds_file}")
-            # Leggiamo solo client_id per inizializzare il manager
-            try:
-                import json as _json, base64, hashlib
-                raw = _json.loads(creds_file.read_text())
-                # Proviamo a estrarre client_id dal file (non cifrato nella v1)
-                # Se non ci riesce chiederà all'utente
-            except Exception:
-                pass
+    if client_id:
+        info(f"Client ID caricato: {client_id[:20]}…")
+    if client_secret:
+        info("Client Secret caricato da variabile d'ambiente")
 
+    # ── 2. Se non abbiamo client_id chiediamolo (prima volta) ─────────────
+    if not client_id:
+        print()
+        print("  ╔══════════════════════════════════════════════════════╗")
+        print("  ║        Prima configurazione – un'operazione sola     ║")
+        print("  ╚══════════════════════════════════════════════════════╝")
+        print()
+        print("  Trovi le credenziali su:")
+        print("  accounts.zoho.com/developerconsole → Self Client → Client Secret")
+        print()
+        client_id = ask("Client ID  (es. 1000.C29G99K98...)").strip()
         if not client_id:
-            print()
-            print("  Prima configurazione – inserisci le credenziali del Self Client.")
-            print("  Le trovi su: accounts.zoho.com/developerconsole → Self Client → Client Secret")
-            print()
-            client_id = ask("Client ID").strip()
-            if not client_id:
-                err("Client ID obbligatorio. Uscita.")
-                sys.exit(1)
+            err("Client ID obbligatorio.")
+            sys.exit(1)
 
+    # ── 3. Se non abbiamo client_secret chiediamolo ────────────────────────
+    #       (serve solo se le credenziali NON sono ancora salvate su disco)
+    creds_exist = CREDS_FILE.exists()
+    if not client_secret and not creds_exist:
+        client_secret = ask("Client Secret").strip()
         if not client_secret:
-            client_secret = ask("Client Secret").strip()
-            if not client_secret:
-                err("Client Secret obbligatorio. Uscita.")
-                sys.exit(1)
+            err("Client Secret obbligatorio.")
+            sys.exit(1)
+    elif not client_secret and creds_exist:
+        # Le credenziali sono già salvate: ZohoAuthManager le caricherà
+        # senza bisogno del client_secret in chiaro.
+        # Usiamo una stringa segnaposto che il manager ignorerà.
+        client_secret = "__loaded_from_file__"
 
-    # ── Leggi data centre ─────────────────────────────────────────────────
-    dc = os.getenv("ZOHO_DATA_CENTRE", "").upper()
+    # ── 4. Data centre ────────────────────────────────────────────────────
     if dc not in ("US", "EU", "IN", "AU", "JP"):
-        dc = "US"   # default, ZohoAuthManager permetterà di cambiarlo
+        dc = "EU"
 
-    # ── Crea il manager e ottieni il client ───────────────────────────────
+    # ── 5. Salva config (client_id + dc, NON il secret) ──────────────────
+    _save_config(client_id, dc)
+
+    # ── 6. Crea manager e ottieni client ──────────────────────────────────
     try:
+        # Se il secret è il segnaposto, il manager userà quello salvato su disco
+        actual_secret = (
+            client_secret
+            if client_secret != "__loaded_from_file__"
+            else _get_secret_from_creds_file(client_id)
+        )
+
         manager = ZohoAuthManager(
             client_id=client_id,
-            client_secret=client_secret,
+            client_secret=actual_secret,
             data_centre=dc,
         )
-        client = manager.get_client()
+        c = manager.get_client()
         manager.print_status()
-        return client
+        return c
 
     except Exception as e:
         err(f"Autenticazione fallita: {e}")
         info("Suggerimento: verifica Client ID e Client Secret e riprova.")
+        info(f"Per ricominciare da capo elimina: {CREDS_FILE}")
         sys.exit(1)
+
+
+def _get_secret_from_creds_file(client_id: str) -> str:
+    """
+    Estrae il client_secret dal file di credenziali cifrato.
+    Usato quando le credenziali sono già salvate e non serve ri-chiederlo.
+    """
+    import base64, hashlib
+
+    def _derive_key(cid: str) -> bytes:
+        return hashlib.sha256(f"zoho-sdk-{cid}".encode()).digest()
+
+    def _xor_bytes(data: bytes, key: bytes) -> bytes:
+        return bytes(b ^ key[i % len(key)] for i, b in enumerate(data))
+
+    try:
+        raw = json.loads(CREDS_FILE.read_text(encoding="utf-8"))
+        if raw.get("v") != 1 or "data" not in raw:
+            return ""
+        obfuscated = base64.b64decode(raw["data"].encode("ascii"))
+        key = _derive_key(client_id)
+        decoded = _xor_bytes(obfuscated, key)
+        creds = json.loads(decoded.decode("utf-8"))
+        return creds.get("client_secret", "")
+    except Exception:
+        return ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #

@@ -1,0 +1,5 @@
+{
+  "_comment": "Questo file contiene solo client_id e data_centre (NON segreti). Le credenziali sensibili sono in ~/.zoho_credentials.json",
+  "client_id": "",
+  "data_centre": "EU"
+}
