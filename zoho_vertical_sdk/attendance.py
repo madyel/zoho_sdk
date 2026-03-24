@@ -547,6 +547,156 @@ class PeopleAttendanceAPI:
         })
         return self._client.form_post("attendance/addEntries", data=payload)
 
+    def get_specific_entry(self, attendance_id: str) -> Dict[str, Any]:
+        """
+        Recupera una specifica timbratura.
+
+        Endpoint: GET /attendance/getSpecificEntry
+
+        Parameters
+        ----------
+        attendance_id : str
+            ID univoco della timbratura.
+        """
+        return self._client.get("attendance/getSpecificEntry",
+                                params={"attendanceId": attendance_id})
+
+    def update_entry(
+        self,
+        attendance_id: str,
+        check_in: str,
+        check_out: str,
+        reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Modifica una timbratura esistente.
+
+        Endpoint: PUT /attendance/updateEntry
+
+        Parameters
+        ----------
+        attendance_id : str
+            ID univoco della timbratura.
+        check_in : str
+            Nuovo orario di ingresso HH:MM.
+        check_out : str
+            Nuovo orario di uscita HH:MM.
+        reason : str, optional
+            Motivo della modifica.
+        """
+        payload: Dict[str, Any] = {
+            "attendanceId": attendance_id,
+            "checkIn":      check_in,
+            "checkOut":     check_out,
+        }
+        if reason:
+            payload["reason"] = reason
+        return self._client.put("attendance/updateEntry", json=payload)
+
+    def delete_specific_entry(self, attendance_id: str) -> Dict[str, Any]:
+        """
+        Elimina una specifica timbratura.
+
+        Endpoint: DELETE /attendance/deleteSpecificEntry
+
+        Parameters
+        ----------
+        attendance_id : str
+            ID univoco della timbratura.
+        """
+        return self._client.delete("attendance/deleteSpecificEntry",
+                                   params={"attendanceId": attendance_id})
+
+    def delete_entries(
+        self,
+        user_id: str,
+        from_date: str,
+        to_date: str,
+    ) -> Dict[str, Any]:
+        """
+        Elimina tutte le timbrature di un dipendente in un intervallo di date.
+
+        Endpoint: DELETE /attendance/deleteEntries
+
+        Parameters
+        ----------
+        user_id : str
+            Email o ID dipendente.
+        from_date : str
+            Data inizio nel formato dd-MMM-yyyy (es. "01-Mar-2026").
+        to_date : str
+            Data fine nel formato dd-MMM-yyyy (es. "31-Mar-2026").
+        """
+        params: Dict[str, Any] = {
+            "userId":   user_id,
+            "fromDate": _to_zoho_date(from_date),
+            "toDate":   _to_zoho_date(to_date),
+        }
+        return self._client.delete("attendance/deleteEntries", params=params)
+
+    def punch_in(
+        self,
+        employee_id: str,
+        check_in_time: str,
+        location: Optional[str] = None,
+        latitude: Optional[str] = None,
+        longitude: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Registra una timbratura di ingresso (punch-in).
+
+        Endpoint: POST /attendance/punchIn
+
+        Parameters
+        ----------
+        employee_id : str
+            ID dipendente.
+        check_in_time : str
+            Orario di ingresso HH:mm.
+        location : str, optional
+            Nome della posizione.
+        latitude : str, optional
+            Latitudine GPS.
+        longitude : str, optional
+            Longitudine GPS.
+        """
+        payload: Dict[str, Any] = {
+            "employeeId":   employee_id,
+            "checkInTime":  check_in_time,
+        }
+        if location:
+            payload["location"] = location
+        if latitude:
+            payload["latitude"] = latitude
+        if longitude:
+            payload["longitude"] = longitude
+        return self._client.form_post("attendance/punchIn", data=payload)
+
+    def file_upload(
+        self,
+        file_path: str,
+        employee_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Carica un file CSV/XLS con le presenze.
+
+        Endpoint: POST /attendance/fileUpload
+
+        Parameters
+        ----------
+        file_path : str
+            Percorso del file CSV o XLS da caricare.
+        employee_id : str, optional
+            ID dipendente (se il file riguarda un singolo dipendente).
+        """
+        data: Dict[str, Any] = {}
+        if employee_id:
+            data["employeeId"] = employee_id
+        with open(file_path, "rb") as f:
+            return self._client.upload("attendance/fileUpload",
+                                       files={"file": f},
+                                       data=data or None)
+
     def add_bulk(
         self,
         employee_id: str,

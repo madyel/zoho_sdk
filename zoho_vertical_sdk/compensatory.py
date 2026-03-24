@@ -144,3 +144,21 @@ class CompensatoryAPI:
         """
         return self._client.delete("compensatory/deleteRequest",
                                    params={"requestId": request_id})
+
+    def file_upload(self, request_id: str, file_path: str) -> Dict[str, Any]:
+        """
+        Carica un allegato per una richiesta di recupero.
+
+        Endpoint: POST /compensatory/fileUpload
+
+        Parameters
+        ----------
+        request_id : str
+            ID della richiesta di recupero.
+        file_path : str
+            Percorso del file da caricare.
+        """
+        with open(file_path, "rb") as f:
+            return self._client.upload("compensatory/fileUpload",
+                                       files={"file": f},
+                                       data={"requestId": request_id})

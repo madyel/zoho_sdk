@@ -143,6 +143,24 @@ class FilesAPI:
         """
         return self._client.get("files/viewFile", params={"fileId": file_id})
 
+    def download_file(self, file_id: str) -> bytes:
+        """
+        Scarica il contenuto binario di un file.
+
+        Endpoint: GET /files/downloadFile
+
+        Parameters
+        ----------
+        file_id : str
+            ID univoco del file.
+
+        Returns
+        -------
+        bytes
+            Contenuto binario del file.
+        """
+        return self._client.get("files/downloadFile", params={"fileId": file_id})
+
     def get_share_options(self, file_id: str) -> Dict[str, Any]:
         """
         Recupera le opzioni di condivisione di un file.
@@ -150,6 +168,41 @@ class FilesAPI:
         Endpoint: GET /files/getShareOptions
         """
         return self._client.get("files/getShareOptions", params={"fileId": file_id})
+
+    def add_file(
+        self,
+        file_path: str,
+        folder_id: str,
+        employee_id: Optional[str] = None,
+        file_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Carica un nuovo file nella cartella specificata.
+
+        Endpoint: POST /files/addFile
+
+        Parameters
+        ----------
+        file_path : str
+            Percorso del file da caricare.
+        folder_id : str
+            ID della cartella di destinazione.
+        employee_id : str, optional
+            ID dipendente a cui associare il file.
+        file_name : str, optional
+            Nome del file (default: nome originale del file).
+        """
+        import os
+        data: Dict[str, Any] = {"folderId": folder_id}
+        if employee_id:
+            data["employeeId"] = employee_id
+        if file_name:
+            data["fileName"] = file_name
+        name = file_name or os.path.basename(file_path)
+        with open(file_path, "rb") as f:
+            return self._client.upload("files/addFile",
+                                       files={"file": (name, f)},
+                                       data=data)
 
     def edit_file(self, file_id: str, file_name: str) -> Dict[str, Any]:
         """
