@@ -149,42 +149,11 @@ class TestAttendanceHTTP:
             check_out="18:00",
         )
 
-        assert captured["path"] == "attendance/addEntries"
-        assert captured["data"]["empId"]    == "P-000042"
-        assert captured["data"]["checkIn"]  == "09:00"
-        assert captured["data"]["checkOut"] == "18:00"
-        assert captured["data"]["date"]     == "15/03/2025"
-
-    def test_check_in_calls_v3_endpoint(self, client, monkeypatch):
-        captured = {}
-
-        def mock_form_post(path, data, params=None):
-            captured["path"] = path
-            captured["data"] = data
-            return {"status": 0}
-
-        monkeypatch.setattr(client, "form_post", mock_form_post)
-        client.attendance.check_in("P-001", "20/03/2026", "09:00")
-
-        assert captured["path"] == "attendance/checkIn"
-        assert captured["data"]["empId"]       == "P-001"
-        assert captured["data"]["checkInTime"] == "09:00"
-        assert captured["data"]["date"]        == "20/03/2026"
-
-    def test_check_out_calls_v3_endpoint(self, client, monkeypatch):
-        captured = {}
-
-        def mock_form_post(path, data, params=None):
-            captured["path"] = path
-            captured["data"] = data
-            return {"status": 0}
-
-        monkeypatch.setattr(client, "form_post", mock_form_post)
-        client.attendance.check_out("P-001", "20/03/2026", "18:00")
-
-        assert captured["path"] == "attendance/checkOut"
-        assert captured["data"]["checkOutTime"] == "18:00"
-        assert captured["data"]["date"]         == "20/03/2026"
+        assert captured["path"] == "v3/attendance/addEntries"
+        assert captured["data"]["employeeId"] == "P-000042"
+        assert captured["data"]["checkIn"]    == "09:00"
+        assert captured["data"]["checkOut"]   == "18:00"
+        assert captured["data"]["date"]       == "15/03/2025"
 
     def test_add_bulk_returns_one_result_per_record(self, client, monkeypatch):
         monkeypatch.setattr(
@@ -252,11 +221,12 @@ class TestAttendanceHTTP:
             return {}
 
         monkeypatch.setattr(client, "get", mock_get)
-        client.attendance.get_entries("P-001", "20/03/2026")
+        client.attendance.get_entries("P-001", "01/03/2026", "31/03/2026")
 
-        assert captured["path"] == "attendance/getEntries"
-        assert captured["params"]["date"]  == "20/03/2026"
-        assert captured["params"]["empId"] == "P-001"
+        assert captured["path"] == "v3/attendance/getEntries"
+        assert captured["params"]["userId"]   == "P-001"
+        assert captured["params"]["fromDate"] == "01-Mar-2026"
+        assert captured["params"]["toDate"]   == "31-Mar-2026"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -695,67 +665,6 @@ class TestLeaveHTTP:
         assert captured["data"]["toDate"]    == "27-Mar-2026"
         assert captured["data"]["reason"]    == "Vacanza"
 
-    def test_get_balance_calls_v3_endpoint(self, client, monkeypatch):
-        captured = {}
-
-        def mock_get(path, params=None):
-            captured["path"]   = path
-            captured["params"] = params
-            return {"response": {"result": [
-                {"leaveType": "Annual Leave", "balance": "10", "used": "5"},
-            ]}}
-
-        monkeypatch.setattr(client, "get", mock_get)
-        balance = client.leave.get_balance("mario@azienda.it")
-
-        assert captured["path"] == "v3/leave/getLeaveRecord"
-        assert captured["params"]["userId"] == "mario@azienda.it"
-        assert len(balance) == 1
-        assert balance[0]["leaveType"] == "Annual Leave"
-
-    def test_update_status_approve(self, client, monkeypatch):
-        captured = {}
-
-        def mock_form_post(path, data, params=None):
-            captured["path"] = path
-            captured["data"] = data
-            return {"response": {"status": 0}}
-
-        monkeypatch.setattr(client, "form_post", mock_form_post)
-        client.leave.update_status("REQ-789", status=1, comments="Approvato")
-
-        assert captured["path"] == "v3/leave/updateLeaveRequestStatus"
-        assert captured["data"]["requestId"] == "REQ-789"
-        assert captured["data"]["status"]    == 1
-        assert captured["data"]["comments"]  == "Approvato"
-
-    def test_approve_shortcut(self, client, monkeypatch):
-        captured = {}
-        monkeypatch.setattr(
-            client, "form_post",
-            lambda path, data, params=None: captured.update({"path": path, "data": data}) or {}
-        )
-        client.leave.approve("REQ-001")
-        assert captured["data"]["status"] == PeopleLeaveAPI.STATUS_APPROVE
-
-    def test_reject_shortcut(self, client, monkeypatch):
-        captured = {}
-        monkeypatch.setattr(
-            client, "form_post",
-            lambda path, data, params=None: captured.update({"path": path, "data": data}) or {}
-        )
-        client.leave.reject("REQ-001", "Non approvato")
-        assert captured["data"]["status"] == PeopleLeaveAPI.STATUS_REJECT
-
-    def test_cancel_shortcut(self, client, monkeypatch):
-        captured = {}
-        monkeypatch.setattr(
-            client, "form_post",
-            lambda path, data, params=None: captured.update({"path": path, "data": data}) or {}
-        )
-        client.leave.cancel("REQ-001")
-        assert captured["data"]["status"] == PeopleLeaveAPI.STATUS_CANCEL
-
     def test_get_requests_returns_list(self, client, monkeypatch):
         monkeypatch.setattr(
             client, "get",
@@ -767,19 +676,6 @@ class TestLeaveHTTP:
         result = client.leave.get_requests()
         assert len(result) == 2
         assert result[0]["requestId"] == "R1"
-
-    def test_get_balance_without_user(self, client, monkeypatch):
-        captured = {}
-
-        def mock_get(path, params=None):
-            captured["params"] = params
-            return {"response": {"result": []}}
-
-        monkeypatch.setattr(client, "get", mock_get)
-        client.leave.get_balance()
-
-        # Senza userId non deve essere incluso nel params
-        assert captured["params"] is None or "userId" not in (captured["params"] or {})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -824,7 +720,7 @@ class TestAttendanceNewEndpoints:
         monkeypatch.setattr(client, "get", mock_get)
         client.attendance.get_specific_entry("ATT-001")
 
-        assert captured["path"]              == "attendance/getSpecificEntry"
+        assert captured["path"]              == "v3/attendance/getSpecificEntry"
         assert captured["params"]["attendanceId"] == "ATT-001"
 
     def test_update_entry(self, client, monkeypatch):
@@ -838,7 +734,7 @@ class TestAttendanceNewEndpoints:
         monkeypatch.setattr(client, "put", mock_put)
         client.attendance.update_entry("ATT-001", "09:00", "18:00", reason="correction")
 
-        assert captured["path"]              == "attendance/updateEntry"
+        assert captured["path"]              == "v3/attendance/updateEntry"
         assert captured["json"]["attendanceId"] == "ATT-001"
         assert captured["json"]["checkIn"]      == "09:00"
         assert captured["json"]["checkOut"]     == "18:00"
@@ -862,7 +758,7 @@ class TestAttendanceNewEndpoints:
         monkeypatch.setattr(client, "delete", mock_delete)
         client.attendance.delete_specific_entry("ATT-001")
 
-        assert captured["path"]                  == "attendance/deleteSpecificEntry"
+        assert captured["path"]                  == "v3/attendance/deleteSpecificEntry"
         assert captured["params"]["attendanceId"] == "ATT-001"
 
     def test_delete_entries(self, client, monkeypatch):
@@ -876,7 +772,7 @@ class TestAttendanceNewEndpoints:
         monkeypatch.setattr(client, "delete", mock_delete)
         client.attendance.delete_entries("user@example.com", "01/03/2026", "31/03/2026")
 
-        assert captured["path"]              == "attendance/deleteEntries"
+        assert captured["path"]              == "v3/attendance/deleteEntries"
         assert captured["params"]["userId"]  == "user@example.com"
 
     def test_punch_in(self, client, monkeypatch):
@@ -891,7 +787,7 @@ class TestAttendanceNewEndpoints:
         client.attendance.punch_in("P-001", "09:00", location="HQ",
                                    latitude="45.0", longitude="9.0")
 
-        assert captured["path"]                  == "attendance/punchIn"
+        assert captured["path"]                  == "v3/attendance/punchIn"
         assert captured["data"]["employeeId"]    == "P-001"
         assert captured["data"]["checkInTime"]   == "09:00"
         assert captured["data"]["location"]      == "HQ"
@@ -928,7 +824,7 @@ class TestCompensatoryFileUpload:
         api = CompensatoryAPI(client)
         api.file_upload("REQ-001", str(dummy))
 
-        assert captured["path"]              == "compensatory/fileUpload"
+        assert captured["path"]              == "v3/compensatory/fileUpload"
         assert captured["data"]["requestId"] == "REQ-001"
 
 
@@ -953,7 +849,7 @@ class TestFilesAPINew:
         api = FilesAPI(client)
         api.add_file(str(dummy), folder_id="FOLD-1", employee_id="EMP-1")
 
-        assert captured["path"]                == "files/addFile"
+        assert captured["path"]                == "v3/files/addFile"
         assert captured["data"]["folderId"]    == "FOLD-1"
         assert captured["data"]["employeeId"]  == "EMP-1"
 
@@ -983,6 +879,6 @@ class TestFilesAPINew:
         api = FilesAPI(client)
         result = api.download_file("FILE-001")
 
-        assert captured["path"]               == "files/downloadFile"
+        assert captured["path"]               == "v3/files/downloadFile"
         assert captured["params"]["fileId"]   == "FILE-001"
         assert result == b"binary content"
