@@ -132,7 +132,7 @@ class TestAbsentDaysFromDaylist:
 class TestAttendanceHTTP:
 
     def test_add_uses_rest_endpoint(self, client, monkeypatch):
-        """add() senza service_url usa attendance/addEntries."""
+        """add() senza service_url usa attendance/entries."""
         captured = {}
 
         def mock_form_post(path, data, params=None):
@@ -149,11 +149,11 @@ class TestAttendanceHTTP:
             check_out="18:00",
         )
 
-        assert captured["path"] == "v3/attendance/addEntries"
-        assert captured["data"]["employeeId"] == "P-000042"
-        assert captured["data"]["checkIn"]    == "09:00"
-        assert captured["data"]["checkOut"]   == "18:00"
-        assert captured["data"]["date"]       == "15/03/2025"
+        assert captured["path"] == "v3/attendance/entries"
+        assert captured["data"]["employee_zoho_id"] == "P-000042"
+        assert captured["data"]["check_in"]         == "09:00"
+        assert captured["data"]["check_out"]        == "18:00"
+        assert captured["data"]["date"]             == "15/03/2025"
 
     def test_add_bulk_returns_one_result_per_record(self, client, monkeypatch):
         monkeypatch.setattr(
@@ -221,12 +221,13 @@ class TestAttendanceHTTP:
             return {}
 
         monkeypatch.setattr(client, "get", mock_get)
-        client.attendance.get_entries("P-001", "01/03/2026", "31/03/2026")
+        client.attendance.get_entries(employee_zoho_id="P-001",
+                                      from_date="01/03/2026", to_date="31/03/2026")
 
-        assert captured["path"] == "v3/attendance/getEntries"
-        assert captured["params"]["userId"]   == "P-001"
-        assert captured["params"]["fromDate"] == "01-Mar-2026"
-        assert captured["params"]["toDate"]   == "31-Mar-2026"
+        assert captured["path"] == "v3/attendance/entries"
+        assert captured["params"]["employee_zoho_ids"] == "P-001"
+        assert captured["params"]["from_date"]         == "01-Mar-2026"
+        assert captured["params"]["to_date"]           == "31-Mar-2026"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -618,27 +619,28 @@ class TestLeaveHTTP:
         def mock_get(path, params=None):
             captured["path"]   = path
             captured["params"] = params
-            return {"response": {"result": []}}
+            return {"data": []}
 
         monkeypatch.setattr(client, "get", mock_get)
-        client.leave.get_requests(user_id="mario@azienda.it", status="Pending")
+        client.leave.get_requests(employee_zoho_id="mario@azienda.it",
+                                  approval_status="Pending")
 
-        assert captured["path"] == "v3/leave/getLeaveRequests"
-        assert captured["params"]["userId"]        == "mario@azienda.it"
-        assert captured["params"]["allowedStatus"] == "Pending"
+        assert captured["path"] == "v3/leave-tracker/leaves"
+        assert captured["params"]["employee_zoho_ids"] == "mario@azienda.it"
+        assert captured["params"]["approval_status"]   == "Pending"
 
     def test_get_requests_date_conversion(self, client, monkeypatch):
         captured = {}
 
         def mock_get(path, params=None):
             captured["params"] = params
-            return {"response": {"result": []}}
+            return {"data": []}
 
         monkeypatch.setattr(client, "get", mock_get)
         client.leave.get_requests(from_date="01/03/2026", to_date="31/03/2026")
 
-        assert captured["params"]["fromDate"] == "01-Mar-2026"
-        assert captured["params"]["toDate"]   == "31-Mar-2026"
+        assert captured["params"]["from_date"] == "01-Mar-2026"
+        assert captured["params"]["to_date"]   == "31-Mar-2026"
 
     def test_add_request_calls_v3_endpoint(self, client, monkeypatch):
         captured = {}
@@ -646,32 +648,32 @@ class TestLeaveHTTP:
         def mock_form_post(path, data, params=None):
             captured["path"] = path
             captured["data"] = data
-            return {"response": {"result": {"requestId": "REQ-001"}}}
+            return {"data": {"requestId": "REQ-001"}}
 
         monkeypatch.setattr(client, "form_post", mock_form_post)
 
         client.leave.add_request(
-            user_id="mario@azienda.it",
-            leave_type="Annual Leave",
+            employee_zoho_id="mario@azienda.it",
+            leave_type_id="LT-001",
             from_date="24/03/2026",
             to_date="27/03/2026",
             reason="Vacanza",
         )
 
-        assert captured["path"] == "v3/leave/addLeaveRequest"
-        assert captured["data"]["userId"]    == "mario@azienda.it"
-        assert captured["data"]["leavetype"] == "Annual Leave"
-        assert captured["data"]["fromDate"]  == "24-Mar-2026"
-        assert captured["data"]["toDate"]    == "27-Mar-2026"
-        assert captured["data"]["reason"]    == "Vacanza"
+        assert captured["path"] == "v3/leave-tracker/leaves"
+        assert captured["data"]["employee_zoho_id"] == "mario@azienda.it"
+        assert captured["data"]["leave_type_id"]    == "LT-001"
+        assert captured["data"]["from_date"]        == "24-Mar-2026"
+        assert captured["data"]["to_date"]          == "27-Mar-2026"
+        assert captured["data"]["reason"]           == "Vacanza"
 
     def test_get_requests_returns_list(self, client, monkeypatch):
         monkeypatch.setattr(
             client, "get",
-            lambda path, params=None: {"response": {"result": [
+            lambda path, params=None: {"data": [
                 {"requestId": "R1", "status": "Pending"},
                 {"requestId": "R2", "status": "Approved"},
-            ]}}
+            ]}
         )
         result = client.leave.get_requests()
         assert len(result) == 2
@@ -709,72 +711,6 @@ class TestClientProperties:
 
 class TestAttendanceNewEndpoints:
 
-    def test_get_specific_entry(self, client, monkeypatch):
-        captured = {}
-
-        def mock_get(path, params=None):
-            captured["path"]   = path
-            captured["params"] = params
-            return {"response": {"result": {"attendanceId": "ATT-001"}}}
-
-        monkeypatch.setattr(client, "get", mock_get)
-        client.attendance.get_specific_entry("ATT-001")
-
-        assert captured["path"]              == "v3/attendance/getSpecificEntry"
-        assert captured["params"]["attendanceId"] == "ATT-001"
-
-    def test_update_entry(self, client, monkeypatch):
-        captured = {}
-
-        def mock_put(path, json=None, params=None):
-            captured["path"] = path
-            captured["json"] = json
-            return {"response": {"result": {}}}
-
-        monkeypatch.setattr(client, "put", mock_put)
-        client.attendance.update_entry("ATT-001", "09:00", "18:00", reason="correction")
-
-        assert captured["path"]              == "v3/attendance/updateEntry"
-        assert captured["json"]["attendanceId"] == "ATT-001"
-        assert captured["json"]["checkIn"]      == "09:00"
-        assert captured["json"]["checkOut"]     == "18:00"
-        assert captured["json"]["reason"]       == "correction"
-
-    def test_update_entry_no_reason(self, client, monkeypatch):
-        captured = {}
-        monkeypatch.setattr(client, "put",
-                            lambda path, json=None, params=None: captured.update({"json": json}) or {})
-        client.attendance.update_entry("ATT-002", "08:30", "17:30")
-        assert "reason" not in captured["json"]
-
-    def test_delete_specific_entry(self, client, monkeypatch):
-        captured = {}
-
-        def mock_delete(path, params=None):
-            captured["path"]   = path
-            captured["params"] = params
-            return {"response": {"result": {}}}
-
-        monkeypatch.setattr(client, "delete", mock_delete)
-        client.attendance.delete_specific_entry("ATT-001")
-
-        assert captured["path"]                  == "v3/attendance/deleteSpecificEntry"
-        assert captured["params"]["attendanceId"] == "ATT-001"
-
-    def test_delete_entries(self, client, monkeypatch):
-        captured = {}
-
-        def mock_delete(path, params=None):
-            captured["path"]   = path
-            captured["params"] = params
-            return {"response": {"result": {}}}
-
-        monkeypatch.setattr(client, "delete", mock_delete)
-        client.attendance.delete_entries("user@example.com", "01/03/2026", "31/03/2026")
-
-        assert captured["path"]              == "v3/attendance/deleteEntries"
-        assert captured["params"]["userId"]  == "user@example.com"
-
     def test_punch_in(self, client, monkeypatch):
         captured = {}
 
@@ -787,12 +723,12 @@ class TestAttendanceNewEndpoints:
         client.attendance.punch_in("P-001", "09:00", location="HQ",
                                    latitude="45.0", longitude="9.0")
 
-        assert captured["path"]                  == "v3/attendance/punchIn"
-        assert captured["data"]["employeeId"]    == "P-001"
-        assert captured["data"]["checkInTime"]   == "09:00"
-        assert captured["data"]["location"]      == "HQ"
-        assert captured["data"]["latitude"]      == "45.0"
-        assert captured["data"]["longitude"]     == "9.0"
+        assert captured["path"]                        == "v3/attendance/entries/punch-in"
+        assert captured["data"]["employee_zoho_id"]    == "P-001"
+        assert captured["data"]["punch_in_time"]       == "09:00"
+        assert captured["data"]["location"]            == "HQ"
+        assert captured["data"]["latitude"]            == "45.0"
+        assert captured["data"]["longitude"]           == "9.0"
 
     def test_punch_in_minimal(self, client, monkeypatch):
         captured = {}
@@ -801,6 +737,34 @@ class TestAttendanceNewEndpoints:
         client.attendance.punch_in("P-002", "08:30")
         assert "location" not in captured["data"]
         assert "latitude" not in captured["data"]
+
+    def test_punch_out(self, client, monkeypatch):
+        captured = {}
+
+        def mock_form_post(path, data, params=None):
+            captured["path"] = path
+            captured["data"] = data
+            return {"status": 0}
+
+        monkeypatch.setattr(client, "form_post", mock_form_post)
+        client.attendance.punch_out("P-001", "18:00", location="HQ")
+
+        assert captured["path"]                     == "v3/attendance/entries/punch-out"
+        assert captured["data"]["employee_zoho_id"] == "P-001"
+        assert captured["data"]["punch_out_time"]   == "18:00"
+        assert captured["data"]["location"]         == "HQ"
+
+    def test_delete_entry(self, client, monkeypatch):
+        captured = {}
+
+        def mock_delete(path, params=None):
+            captured["path"] = path
+            return {}
+
+        monkeypatch.setattr(client, "delete", mock_delete)
+        client.attendance.delete_entry("ATT-001")
+
+        assert captured["path"] == "v3/attendance/entries/ATT-001"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -847,11 +811,11 @@ class TestFilesAPINew:
         monkeypatch.setattr(client, "upload", mock_upload)
         from zoho_vertical_sdk.files_api import FilesAPI
         api = FilesAPI(client)
-        api.add_file(str(dummy), folder_id="FOLD-1", employee_id="EMP-1")
+        api.upload_file(str(dummy), folder_id="FOLD-1", employee_zoho_id="EMP-1")
 
-        assert captured["path"]                == "v3/files/addFile"
-        assert captured["data"]["folderId"]    == "FOLD-1"
-        assert captured["data"]["employeeId"]  == "EMP-1"
+        assert captured["path"]                      == "v3/files"
+        assert captured["data"]["folder_id"]         == "FOLD-1"
+        assert captured["data"]["employee_zoho_id"]  == "EMP-1"
 
     def test_add_file_without_employee(self, client, monkeypatch, tmp_path):
         captured = {}
@@ -862,9 +826,9 @@ class TestFilesAPINew:
                             lambda path, files, data=None: captured.update({"data": data}) or {})
         from zoho_vertical_sdk.files_api import FilesAPI
         api = FilesAPI(client)
-        api.add_file(str(dummy), folder_id="FOLD-2")
+        api.upload_file(str(dummy), folder_id="FOLD-2")
 
-        assert "employeeId" not in (captured["data"] or {})
+        assert "employee_zoho_id" not in (captured["data"] or {})
 
     def test_download_file_calls_correct_endpoint(self, client, monkeypatch):
         captured = {}
@@ -879,6 +843,6 @@ class TestFilesAPINew:
         api = FilesAPI(client)
         result = api.download_file("FILE-001")
 
-        assert captured["path"]               == "v3/files/downloadFile"
-        assert captured["params"]["fileId"]   == "FILE-001"
+        assert captured["path"]  == "v3/files/FILE-001/download"
+        assert captured["params"] is None
         assert result == b"binary content"
