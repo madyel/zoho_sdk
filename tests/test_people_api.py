@@ -805,3 +805,184 @@ class TestClientProperties:
         assert client.timesheet  is client.timesheet
         assert client.employee   is client.employee
         assert client.leave      is client.leave
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PeopleAttendanceAPI – new REST endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestAttendanceNewEndpoints:
+
+    def test_get_specific_entry(self, client, monkeypatch):
+        captured = {}
+
+        def mock_get(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return {"response": {"result": {"attendanceId": "ATT-001"}}}
+
+        monkeypatch.setattr(client, "get", mock_get)
+        client.attendance.get_specific_entry("ATT-001")
+
+        assert captured["path"]              == "attendance/getSpecificEntry"
+        assert captured["params"]["attendanceId"] == "ATT-001"
+
+    def test_update_entry(self, client, monkeypatch):
+        captured = {}
+
+        def mock_put(path, json=None, params=None):
+            captured["path"] = path
+            captured["json"] = json
+            return {"response": {"result": {}}}
+
+        monkeypatch.setattr(client, "put", mock_put)
+        client.attendance.update_entry("ATT-001", "09:00", "18:00", reason="correction")
+
+        assert captured["path"]              == "attendance/updateEntry"
+        assert captured["json"]["attendanceId"] == "ATT-001"
+        assert captured["json"]["checkIn"]      == "09:00"
+        assert captured["json"]["checkOut"]     == "18:00"
+        assert captured["json"]["reason"]       == "correction"
+
+    def test_update_entry_no_reason(self, client, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(client, "put",
+                            lambda path, json=None, params=None: captured.update({"json": json}) or {})
+        client.attendance.update_entry("ATT-002", "08:30", "17:30")
+        assert "reason" not in captured["json"]
+
+    def test_delete_specific_entry(self, client, monkeypatch):
+        captured = {}
+
+        def mock_delete(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return {"response": {"result": {}}}
+
+        monkeypatch.setattr(client, "delete", mock_delete)
+        client.attendance.delete_specific_entry("ATT-001")
+
+        assert captured["path"]                  == "attendance/deleteSpecificEntry"
+        assert captured["params"]["attendanceId"] == "ATT-001"
+
+    def test_delete_entries(self, client, monkeypatch):
+        captured = {}
+
+        def mock_delete(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return {"response": {"result": {}}}
+
+        monkeypatch.setattr(client, "delete", mock_delete)
+        client.attendance.delete_entries("user@example.com", "01/03/2026", "31/03/2026")
+
+        assert captured["path"]              == "attendance/deleteEntries"
+        assert captured["params"]["userId"]  == "user@example.com"
+
+    def test_punch_in(self, client, monkeypatch):
+        captured = {}
+
+        def mock_form_post(path, data, params=None):
+            captured["path"] = path
+            captured["data"] = data
+            return {"status": 0}
+
+        monkeypatch.setattr(client, "form_post", mock_form_post)
+        client.attendance.punch_in("P-001", "09:00", location="HQ",
+                                   latitude="45.0", longitude="9.0")
+
+        assert captured["path"]                  == "attendance/punchIn"
+        assert captured["data"]["employeeId"]    == "P-001"
+        assert captured["data"]["checkInTime"]   == "09:00"
+        assert captured["data"]["location"]      == "HQ"
+        assert captured["data"]["latitude"]      == "45.0"
+        assert captured["data"]["longitude"]     == "9.0"
+
+    def test_punch_in_minimal(self, client, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(client, "form_post",
+                            lambda path, data, params=None: captured.update({"data": data}) or {})
+        client.attendance.punch_in("P-002", "08:30")
+        assert "location" not in captured["data"]
+        assert "latitude" not in captured["data"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CompensatoryAPI – file_upload
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCompensatoryFileUpload:
+
+    def test_file_upload_calls_correct_endpoint(self, client, monkeypatch, tmp_path):
+        captured = {}
+        dummy = tmp_path / "doc.pdf"
+        dummy.write_bytes(b"PDF")
+
+        def mock_upload(path, files, data=None):
+            captured["path"] = path
+            captured["data"] = data
+            return {"status": 0}
+
+        monkeypatch.setattr(client, "upload", mock_upload)
+        from zoho_vertical_sdk.compensatory import CompensatoryAPI
+        api = CompensatoryAPI(client)
+        api.file_upload("REQ-001", str(dummy))
+
+        assert captured["path"]              == "compensatory/fileUpload"
+        assert captured["data"]["requestId"] == "REQ-001"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FilesAPI – add_file / download_file
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestFilesAPINew:
+
+    def test_add_file_calls_correct_endpoint(self, client, monkeypatch, tmp_path):
+        captured = {}
+        dummy = tmp_path / "report.pdf"
+        dummy.write_bytes(b"PDF content")
+
+        def mock_upload(path, files, data=None):
+            captured["path"] = path
+            captured["data"] = data
+            return {"status": 0}
+
+        monkeypatch.setattr(client, "upload", mock_upload)
+        from zoho_vertical_sdk.files_api import FilesAPI
+        api = FilesAPI(client)
+        api.add_file(str(dummy), folder_id="FOLD-1", employee_id="EMP-1")
+
+        assert captured["path"]                == "files/addFile"
+        assert captured["data"]["folderId"]    == "FOLD-1"
+        assert captured["data"]["employeeId"]  == "EMP-1"
+
+    def test_add_file_without_employee(self, client, monkeypatch, tmp_path):
+        captured = {}
+        dummy = tmp_path / "file.txt"
+        dummy.write_bytes(b"text")
+
+        monkeypatch.setattr(client, "upload",
+                            lambda path, files, data=None: captured.update({"data": data}) or {})
+        from zoho_vertical_sdk.files_api import FilesAPI
+        api = FilesAPI(client)
+        api.add_file(str(dummy), folder_id="FOLD-2")
+
+        assert "employeeId" not in (captured["data"] or {})
+
+    def test_download_file_calls_correct_endpoint(self, client, monkeypatch):
+        captured = {}
+
+        def mock_get(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return b"binary content"
+
+        monkeypatch.setattr(client, "get", mock_get)
+        from zoho_vertical_sdk.files_api import FilesAPI
+        api = FilesAPI(client)
+        result = api.download_file("FILE-001")
+
+        assert captured["path"]               == "files/downloadFile"
+        assert captured["params"]["fileId"]   == "FILE-001"
+        assert result == b"binary content"
