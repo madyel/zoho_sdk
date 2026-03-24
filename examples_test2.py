@@ -760,22 +760,8 @@ def example_15_leave():
         skip("Client non inizializzato")
         return
 
-    # --- Saldo residuo ---------------------------------------------------
-    info("Saldo residuo ferie (getLeaveRecord):")
-    try:
-        user_id = None if EMPLOYEE_ID == "self" else EMPLOYEE_ID
-        balance = client.leave.get_balance(user_id)
-        if balance:
-            ok(f"Tipi di ferie: {len(balance)}")
-            for b in balance[:5]:
-                ltype   = b.get("leaveType", "?")
-                bal     = b.get("balance", "?")
-                used    = b.get("used", "?")
-                print(f"    • {ltype:25}  residuo={bal:5}  usati={used}")
-        else:
-            warn("Nessun saldo ricevuto")
-    except ZohoAPIError as e:
-        err(f"getLeaveRecord: {e}")
+    # --- Saldo residuo (rimosso da API v3) ------------------------------------
+    info("Saldo residuo ferie: non disponibile nell'API v3 (endpoint getLeaveRecord rimosso)")
 
     # --- Lista richieste pendenti ----------------------------------------
     info("Richieste ferie in stato Pending (getLeaveRequests):")

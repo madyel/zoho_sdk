@@ -181,9 +181,14 @@ class PeopleEmployeeAPI:
         view_name: str = "Active_Employees",
     ) -> List[Dict[str, Any]]:
         """
-        Recupera la lista di tutti i dipendenti via REST API v3.
+        Recupera la lista di tutti i dipendenti.
 
-        Endpoint: GET /people/api/v3/employee/getRecords
+        Prova l'endpoint REST v3; in fallback usa il WAPI (forms/json).
+
+        Endpoint primario:   GET /people/api/v3/forms/P_EmployeeView/getRecords
+        Endpoint fallback:   GET /people/api/forms/json/P_EmployeeView/getRecords
+
+        Scope richiesto: ZohoPeople.forms.ALL  (o ZohoPeople.employee.ALL)
 
         Parameters
         ----------
@@ -204,19 +209,28 @@ class PeopleEmployeeAPI:
             Lista di dipendenti normalizzata.
         """
         params: Dict[str, Any] = {
-            "page":     page,
-            "per_page": per_page,
+            "sIndex": page,
+            "resLen": per_page,
         }
         if search_value:
             params["searchValue"] = search_value
         if search_field:
             params["searchField"] = search_field
 
-        data      = self._client.get("v3/forms/P_EmployeeView/getRecords", params=params)
-        user_list = _extract_user_list(data)
-        normalized = self._normalize_list(user_list)
+        # Prova endpoint v3 (senza segmento json/)
+        for path in (
+            "v3/forms/P_EmployeeView/getRecords",
+            "forms/json/P_EmployeeView/getRecords",
+        ):
+            try:
+                data      = self._client.get(path, params=params)
+                user_list = _extract_user_list(data)
+                normalized = self._normalize_list(user_list)
+                return normalized
+            except Exception:
+                continue
 
-        return normalized
+        return []
 
     def search(self, query: str) -> List[Dict[str, Any]]:
         """
