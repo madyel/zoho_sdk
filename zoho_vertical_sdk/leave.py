@@ -115,7 +115,7 @@ class PeopleLeaveAPI:
         if to_date:
             params["toDate"] = _to_zoho_date(to_date)
 
-        data     = self._client.get("leave/getLeaveRequests", params=params)
+        data     = self._client.get("v3/leave/getLeaveRequests", params=params)
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -131,7 +131,7 @@ class PeopleLeaveAPI:
         request_id : str
             ID della richiesta ferie.
         """
-        data     = self._client.get("leave/getSpecificLeaveRequest", params={"requestId": request_id})
+        data     = self._client.get("v3/leave/getSpecificLeaveRequest", params={"requestId": request_id})
         response = data.get("response", data)
         result   = response.get("result", {})
         return result if isinstance(result, dict) else {}
@@ -182,7 +182,7 @@ class PeopleLeaveAPI:
         if reason:
             payload["reason"] = reason
 
-        return self._client.form_post("leave/addLeaveRequest", data=payload)
+        return self._client.form_post("v3/leave/addLeaveRequest", data=payload)
 
     def update_request(
         self,
@@ -207,7 +207,7 @@ class PeopleLeaveAPI:
             "fromDate":  _to_zoho_date(from_date),
             "toDate":    _to_zoho_date(to_date),
         }
-        return self._client.put("leave/updateLeaveRequest", json=payload)
+        return self._client.put("v3/leave/updateLeaveRequest", json=payload)
 
     def cancel_request(self, request_id: str) -> Dict[str, Any]:
         """
@@ -220,7 +220,7 @@ class PeopleLeaveAPI:
         request_id : str
             ID della richiesta ferie da cancellare.
         """
-        return self._client.patch("leave/cancelLeaveRequest", json={"requestId": request_id})
+        return self._client.patch("v3/leave/cancelLeaveRequest", json={"requestId": request_id})
 
     def delete_requests(self, request_id: str) -> Dict[str, Any]:
         """
@@ -233,7 +233,7 @@ class PeopleLeaveAPI:
         request_id : str
             ID della richiesta ferie da eliminare.
         """
-        return self._client.delete("leave/deleteLeaveRequests", params={"requestId": request_id})
+        return self._client.delete("v3/leave/deleteLeaveRequests", params={"requestId": request_id})
 
     def file_upload_leave(self, request_id: str, file_path: str) -> Dict[str, Any]:
         """
@@ -249,7 +249,7 @@ class PeopleLeaveAPI:
             Percorso del file da caricare.
         """
         with open(file_path, "rb") as f:
-            return self._client.upload("leave/fileUploadLeave",
+            return self._client.upload("v3/leave/fileUploadLeave",
                                        files={"file": f},
                                        data={"requestId": request_id})
 
@@ -278,7 +278,7 @@ class PeopleLeaveAPI:
         if user_id:
             params["userId"] = user_id
 
-        data     = self._client.get("leave/getLeaveRecord", params=params or None)
+        data     = self._client.get("v3/leave/getLeaveRecord", params=params or None)
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -317,7 +317,7 @@ class PeopleLeaveAPI:
             payload["comments"] = comments
 
         return self._client.form_post(
-            "leave/updateLeaveRequestStatus", data=payload
+            "v3/leave/updateLeaveRequestStatus", data=payload
         )
 
     def approve(self, request_id: str, comments: Optional[str] = None) -> Dict[str, Any]:
@@ -361,7 +361,7 @@ class PeopleLeaveAPI:
         if status:
             params["status"] = status
 
-        data     = self._client.get("leave/getLeaveGrantRequests", params=params)
+        data     = self._client.get("v3/leave/getLeaveGrantRequests", params=params)
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -372,7 +372,7 @@ class PeopleLeaveAPI:
 
         Endpoint: GET /leave/getSpecificLeaveGrantRequests
         """
-        data     = self._client.get("leave/getSpecificLeaveGrantRequests",
+        data     = self._client.get("v3/leave/getSpecificLeaveGrantRequests",
                                     params={"requestId": request_id})
         response = data.get("response", data)
         result   = response.get("result", {})
@@ -408,7 +408,7 @@ class PeopleLeaveAPI:
         }
         if reason:
             payload["reason"] = reason
-        return self._client.form_post("leave/addLeaveGrantRequests", data=payload)
+        return self._client.form_post("v3/leave/addLeaveGrantRequests", data=payload)
 
     def update_grant_request(
         self,
@@ -424,7 +424,7 @@ class PeopleLeaveAPI:
         payload: Dict[str, Any] = {"requestId": request_id, "count": count}
         if reason:
             payload["reason"] = reason
-        return self._client.put("leave/updateLeaveGrantRequests", json=payload)
+        return self._client.put("v3/leave/updateLeaveGrantRequests", json=payload)
 
     def cancel_grant_request(self, request_id: str) -> Dict[str, Any]:
         """
@@ -432,7 +432,7 @@ class PeopleLeaveAPI:
 
         Endpoint: PATCH /leave/cancelLeaveGrantRequest
         """
-        return self._client.patch("leave/cancelLeaveGrantRequest",
+        return self._client.patch("v3/leave/cancelLeaveGrantRequest",
                                   json={"requestId": request_id})
 
     def delete_grant_request(self, request_id: str) -> Dict[str, Any]:
@@ -441,7 +441,7 @@ class PeopleLeaveAPI:
 
         Endpoint: DELETE /leave/deleteLeaveGrantRequests
         """
-        return self._client.delete("leave/deleteLeaveGrantRequests",
+        return self._client.delete("v3/leave/deleteLeaveGrantRequests",
                                    params={"requestId": request_id})
 
     def file_upload_grant(self, request_id: str, file_path: str) -> Dict[str, Any]:
@@ -451,6 +451,6 @@ class PeopleLeaveAPI:
         Endpoint: POST /leave/fileUploadGrant
         """
         with open(file_path, "rb") as f:
-            return self._client.upload("leave/fileUploadGrant",
+            return self._client.upload("v3/leave/fileUploadGrant",
                                        files={"file": f},
                                        data={"requestId": request_id})

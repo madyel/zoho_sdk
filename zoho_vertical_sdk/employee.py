@@ -212,7 +212,7 @@ class PeopleEmployeeAPI:
         if search_field:
             params["searchField"] = search_field
 
-        data      = self._client.get("forms/json/P_EmployeeView/getRecords", params=params)
+        data      = self._client.get("v3/forms/P_EmployeeView/getRecords", params=params)
         user_list = _extract_user_list(data)
         normalized = self._normalize_list(user_list)
 
@@ -241,7 +241,7 @@ class PeopleEmployeeAPI:
             ID dipendente (empId o eNo).
         """
         try:
-            data     = self._client.get("employee/getRecordByID", params={"empId": employee_id})
+            data     = self._client.get("v3/employee/getRecordByID", params={"empId": employee_id})
             response = data.get("response", data)
             result   = response.get("result", [])
             if result:
@@ -280,7 +280,7 @@ class PeopleEmployeeAPI:
         """
         # 1. REST API
         try:
-            data     = self._client.get("employee/getEmployeeTree", params={"erecno": employee_id})
+            data     = self._client.get("v3/employee/getEmployeeTree", params={"erecno": employee_id})
             response = data.get("response", data)
             result   = response.get("result", _extract_user_list(data))
             if result and isinstance(result, list):
@@ -324,7 +324,7 @@ class PeopleEmployeeAPI:
         dict
             Risposta API con ``response.result.recordId`` del nuovo dipendente.
         """
-        return self._client.post("employee/addRecord", json=record_data)
+        return self._client.post("v3/employee/addRecord", json=record_data)
 
     def update_record(
         self,
@@ -349,7 +349,7 @@ class PeopleEmployeeAPI:
             Risposta API con esito dell'aggiornamento.
         """
         payload = {"empId": employee_id, **record_data}
-        return self._client.put("employee/updateRecord", json=payload)
+        return self._client.put("v3/employee/updateRecord", json=payload)
 
     # ------------------------------------------------------------------
     # Helper: normalizza la lista per compatibilità
