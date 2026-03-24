@@ -1,19 +1,13 @@
 """
-ShiftAPI  –  Zoho People Shifts REST API
-=========================================
+ShiftAPI  –  Zoho People Shifts REST API v3
+============================================
 
-Gestisce i turni di lavoro (schedule e mapping).
+Endpoint:
+    GET    v3/shifts/schedules   (calendario turni)
+    POST   v3/shifts/mappings    (assegna turno)
+    GET    v3/shifts             (lista turni disponibili)
 
-Endpoint Shift Schedule:
-    GET /shift/getSchedule
-
-Endpoint Shift Mapping:
-    GET    /shift/getMapping
-    GET    /shift/getSpecificMapping
-    POST   /shift/mapShift
-    DELETE /shift/deleteMapping
-
-Scope OAuth: ZohoPeople.shift.READ / ZohoPeople.shift.CREATE / ZohoPeople.shift.DELETE
+Scope OAuth: ZOHOPEOPLE.shift.READ / ZOHOPEOPLE.shift.CREATE
 """
 
 from __future__ import annotations
@@ -28,13 +22,12 @@ from .attendance import _to_zoho_date
 
 class ShiftAPI:
     """
-    Wrapper per le API Zoho People Shifts.
+    Wrapper per le API Zoho People Shifts v3.
 
     Usato tramite:
-        client.shift.get_schedule(user_id, from_date, to_date)
-        client.shift.get_mapping(shift_id, user_id)
-        client.shift.map_shift(user_id, shift_id, from_date)
-        client.shift.delete_mapping(map_id)
+        client.shift.get_schedule(from_date, to_date, employee_zoho_id)
+        client.shift.map_shift(employee_zoho_id, shift_id, from_date, to_date)
+        client.shift.get_shifts()
     """
 
     def __init__(self, client: "ZohoVerticalClient"):
@@ -42,99 +35,76 @@ class ShiftAPI:
 
     def get_schedule(
         self,
-        user_id: str,
         from_date: str,
         to_date: str,
+        employee_zoho_ids: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Recupera il calendario turni di un dipendente.
+        Recupera il calendario turni.
 
-        Endpoint: GET /shift/getSchedule
+        Endpoint: GET v3/shifts/schedules
 
         Parameters
         ----------
-        user_id : str
-            Email o ID dipendente.
         from_date, to_date : str
             Intervallo date in formato dd/MM/yyyy.
+        employee_zoho_ids : str, optional
+            ID Zoho del dipendente.
         """
         params: Dict[str, Any] = {
-            "userId":   user_id,
-            "fromDate": _to_zoho_date(from_date),
-            "toDate":   _to_zoho_date(to_date),
+            "from_date": _to_zoho_date(from_date),
+            "to_date":   _to_zoho_date(to_date),
         }
-        return self._client.get("v3/shift/getSchedule", params=params)
-
-    def get_mapping(
-        self,
-        shift_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Recupera i mapping turni.
-
-        Endpoint: GET /shift/getMapping
-
-        Parameters
-        ----------
-        shift_id : str, optional
-            ID del turno.
-        user_id : str, optional
-            Email o ID dipendente.
-        """
-        params: Dict[str, Any] = {}
-        if shift_id:
-            params["shiftId"] = shift_id
-        if user_id:
-            params["userId"] = user_id
-
-        data     = self._client.get("v3/shift/getMapping", params=params)
-        response = data.get("response", data)
-        result   = response.get("result", [])
-        return result if isinstance(result, list) else []
-
-    def get_specific_mapping(self, map_id: str) -> Dict[str, Any]:
-        """
-        Recupera un singolo mapping turno.
-
-        Endpoint: GET /shift/getSpecificMapping
-        """
-        data     = self._client.get("v3/shift/getSpecificMapping", params={"mapId": map_id})
-        response = data.get("response", data)
-        result   = response.get("result", {})
-        return result if isinstance(result, dict) else {}
+        if employee_zoho_ids:
+            params["employee_zoho_ids"] = employee_zoho_ids
+        return self._client.get("v3/shifts/schedules", params=params)
 
     def map_shift(
         self,
-        user_id: str,
+        employee_zoho_id: str,
         shift_id: str,
         from_date: str,
+        to_date: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Assegna un turno a un dipendente.
 
-        Endpoint: POST /shift/mapShift
+        Endpoint: POST v3/shifts/mappings
 
         Parameters
         ----------
-        user_id : str
-            Email o ID dipendente.
+        employee_zoho_id : str
+            ID Zoho del dipendente.
         shift_id : str
             ID del turno da assegnare.
         from_date : str
             Data di inizio dell'assegnazione (dd/MM/yyyy).
+        to_date : str, optional
+            Data di fine dell'assegnazione (dd/MM/yyyy).
         """
         payload: Dict[str, Any] = {
-            "userId":   user_id,
-            "shiftId":  shift_id,
-            "fromDate": _to_zoho_date(from_date),
+            "employee_zoho_id": employee_zoho_id,
+            "shift_id":         shift_id,
+            "from_date":        _to_zoho_date(from_date),
         }
-        return self._client.form_post("v3/shift/mapShift", data=payload)
+        if to_date:
+            payload["to_date"] = _to_zoho_date(to_date)
+        return self._client.form_post("v3/shifts/mappings", data=payload)
 
-    def delete_mapping(self, map_id: str) -> Dict[str, Any]:
+    def get_shifts(self, limit: int = 200, offset: int = 0) -> List[Dict[str, Any]]:
         """
-        Elimina un mapping turno.
+        Recupera la lista dei turni disponibili.
 
-        Endpoint: DELETE /shift/deleteMapping
+        Endpoint: GET v3/shifts
+
+        Parameters
+        ----------
+        limit : int
+            Numero massimo di record.
+        offset : int
+            Offset di paginazione.
         """
-        return self._client.delete("v3/shift/deleteMapping", params={"mapId": map_id})
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        data   = self._client.get("v3/shifts", params=params)
+        result = data.get("data", data.get("response", {}).get("result", []))
+        return result if isinstance(result, list) else []

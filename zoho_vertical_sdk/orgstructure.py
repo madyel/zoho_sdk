@@ -1,16 +1,14 @@
 """
-OrgStructureAPI  –  Zoho People Organization Structure REST API
-================================================================
-
-Gestisce l'organigramma aziendale.
+OrgStructureAPI  –  Zoho People Organization Structure REST API v3
+===================================================================
 
 Endpoint:
-    GET  /orgstructure/getRecord
-    GET  /orgstructure/getRecords
-    POST /orgstructure/addRecord
-    PUT  /orgstructure/updateRecord
+    GET    v3/organization/entities           (lista entità)
+    POST   v3/organization/entities           (crea entità)
+    PUT    v3/organization/entities/{id}      (aggiorna entità)
 
-Scope OAuth: ZohoPeople.orgstructure.ALL
+Scope OAuth: ZOHOPEOPLE.orgstructure.READ / ZOHOPEOPLE.orgstructure.CREATE
+             ZOHOPEOPLE.orgstructure.UPDATE
 """
 
 from __future__ import annotations
@@ -23,50 +21,51 @@ if TYPE_CHECKING:
 
 class OrgStructureAPI:
     """
-    Wrapper per le API Zoho People Organization Structure.
+    Wrapper per le API Zoho People Organization Structure v3.
 
     Usato tramite:
-        client.orgstructure.get_records()
-        client.orgstructure.get_record(record_id)
-        client.orgstructure.add_record("Divisione IT", parent_entity_id="DEPT001")
-        client.orgstructure.update_record(record_id, "IT & Digital")
+        client.orgstructure.get_entities()
+        client.orgstructure.create_entity("Divisione IT", parent_entity_id="DEPT001")
+        client.orgstructure.update_entity(entity_id, "IT & Digital")
     """
 
     def __init__(self, client: "ZohoVerticalClient"):
         self._client = client
 
-    def get_record(self, record_id: str) -> Dict[str, Any]:
+    def get_entities(
+        self,
+        parent_entity_id: Optional[str] = None,
+        limit: int = 200,
+    ) -> List[Dict[str, Any]]:
         """
-        Recupera un singolo record dell'organigramma.
+        Recupera le entità dell'organigramma.
 
-        Endpoint: GET /orgstructure/getRecord
-        """
-        data     = self._client.get("v3/orgstructure/getRecord", params={"recordId": record_id})
-        response = data.get("response", data)
-        result   = response.get("result", {})
-        return result if isinstance(result, dict) else {}
+        Endpoint: GET v3/organization/entities
 
-    def get_records(self, page: int = 1, per_page: int = 200) -> List[Dict[str, Any]]:
+        Parameters
+        ----------
+        parent_entity_id : str, optional
+            ID dell'entità padre (per filtrare i figli diretti).
+        limit : int
+            Numero massimo di record.
         """
-        Recupera tutti i record dell'organigramma.
-
-        Endpoint: GET /orgstructure/getRecords
-        """
-        params: Dict[str, Any] = {"sIndex": page, "resLen": per_page}
-        data     = self._client.get("v3/orgstructure/getRecords", params=params)
-        response = data.get("response", data)
-        result   = response.get("result", [])
+        params: Dict[str, Any] = {"limit": limit}
+        if parent_entity_id:
+            params["parent_entity_id"] = parent_entity_id
+        data   = self._client.get("v3/organization/entities", params=params)
+        result = data.get("data", data.get("response", {}).get("result", []))
         return result if isinstance(result, list) else []
 
-    def add_record(
+    def create_entity(
         self,
         name: str,
         parent_entity_id: Optional[str] = None,
+        head_employee_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Crea un nuovo nodo nell'organigramma.
 
-        Endpoint: POST /orgstructure/addRecord
+        Endpoint: POST v3/organization/entities
 
         Parameters
         ----------
@@ -74,24 +73,37 @@ class OrgStructureAPI:
             Nome dell'entità (es. "Divisione IT").
         parent_entity_id : str, optional
             ID dell'entità padre. Se omesso, crea un nodo radice.
+        head_employee_id : str, optional
+            ID Zoho del responsabile dell'entità.
         """
         payload: Dict[str, Any] = {"name": name}
         if parent_entity_id:
-            payload["parentEntityId"] = parent_entity_id
-        return self._client.form_post("v3/orgstructure/addRecord", data=payload)
+            payload["parent_entity_id"] = parent_entity_id
+        if head_employee_id:
+            payload["head_employee_id"] = head_employee_id
+        return self._client.form_post("v3/organization/entities", data=payload)
 
-    def update_record(
+    def update_entity(
         self,
-        record_id: str,
+        entity_id: str,
         name: str,
-        parent_entity_id: Optional[str] = None,
+        head_employee_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Aggiorna un nodo dell'organigramma.
 
-        Endpoint: PUT /orgstructure/updateRecord
+        Endpoint: PUT v3/organization/entities/{entity_id}
+
+        Parameters
+        ----------
+        entity_id : str
+            ID dell'entità da aggiornare.
+        name : str
+            Nuovo nome dell'entità.
+        head_employee_id : str, optional
+            ID Zoho del nuovo responsabile.
         """
-        payload: Dict[str, Any] = {"recordId": record_id, "name": name}
-        if parent_entity_id:
-            payload["parentEntityId"] = parent_entity_id
-        return self._client.put("v3/orgstructure/updateRecord", json=payload)
+        payload: Dict[str, Any] = {"name": name}
+        if head_employee_id:
+            payload["head_employee_id"] = head_employee_id
+        return self._client.put(f"v3/organization/entities/{entity_id}", json=payload)

@@ -1,25 +1,20 @@
 """
-VariableAPI  –  Zoho People Variable REST API
-==============================================
-
-Gestisce variabili e gruppi di variabili.
+VariableAPI  –  Zoho People Variable REST API v3
+=================================================
 
 Endpoint Variabili:
-    GET    /variable/getVariables
-    GET    /variable/getVariable
-    POST   /variable/addVariable
-    POST   /variable/updateVariable
-    DELETE /variable/deleteVariable
-    GET    /variable/getVariablesByGroup
+    GET    v3/settings/variables              (lista variabili)
+    GET    v3/settings/variables/{id}         (singola variabile)
+    POST   v3/settings/variables              (crea variabile)
+    PUT    v3/settings/variables/{id}         (aggiorna variabile)
+    DELETE v3/settings/variables/{id}         (elimina variabile)
 
 Endpoint Gruppi:
-    GET    /variable/getVariableGroups
-    GET    /variable/getVariableGroup
-    POST   /variable/addVariableGroup
-    PUT    /variable/updateVariableGroup
-    DELETE /variable/deleteVariableGroup
+    GET    v3/settings/variablegroups         (lista gruppi)
+    POST   v3/settings/variablegroups         (crea gruppo)
 
-Scope OAuth: ZohoPeople.variable.ALL
+Scope OAuth: ZOHOPEOPLE.variable.READ / ZOHOPEOPLE.variable.CREATE
+             ZOHOPEOPLE.variable.UPDATE / ZOHOPEOPLE.variable.DELETE
 """
 
 from __future__ import annotations
@@ -32,12 +27,16 @@ if TYPE_CHECKING:
 
 class VariableAPI:
     """
-    Wrapper per le API Zoho People Variable.
+    Wrapper per le API Zoho People Variable v3.
 
     Usato tramite:
         client.variable.get_all()
-        client.variable.add("Budget2026", "50000", "1")
+        client.variable.get(variable_id)
+        client.variable.add("Budget2026", "50000", variable_group_id="GRP-1")
+        client.variable.update(variable_id, value="60000")
+        client.variable.delete(variable_id)
         client.variable.get_groups()
+        client.variable.add_group("Finance", description="...")
     """
 
     def __init__(self, client: "ZohoVerticalClient"):
@@ -47,35 +46,38 @@ class VariableAPI:
     # Variabili
     # ------------------------------------------------------------------
 
-    def get_all(self, page: int = 1, per_page: int = 200) -> List[Dict[str, Any]]:
+    def get_all(self, limit: int = 200, offset: int = 0) -> List[Dict[str, Any]]:
         """
         Recupera tutte le variabili.
 
-        Endpoint: GET /variable/getVariables
+        Endpoint: GET v3/settings/variables
         """
-        params: Dict[str, Any] = {"sIndex": page, "resLen": per_page}
-        data     = self._client.get("v3/variable/getVariables", params=params)
-        response = data.get("response", data)
-        result   = response.get("result", [])
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        data   = self._client.get("v3/settings/variables", params=params)
+        result = data.get("data", data.get("response", {}).get("result", []))
         return result if isinstance(result, list) else []
 
     def get(self, variable_id: str) -> Dict[str, Any]:
         """
         Recupera una variabile specifica.
 
-        Endpoint: GET /variable/getVariable
+        Endpoint: GET v3/settings/variables/{variable_id}
         """
-        data     = self._client.get("v3/variable/getVariable",
-                                    params={"variableId": variable_id})
-        response = data.get("response", data)
-        result   = response.get("result", {})
-        return result if isinstance(result, dict) else {}
+        data   = self._client.get(f"v3/settings/variables/{variable_id}")
+        result = data.get("data", data.get("response", {}).get("result", data))
+        return result if isinstance(result, dict) else data
 
-    def add(self, name: str, value: str, var_type: str) -> Dict[str, Any]:
+    def add(
+        self,
+        name: str,
+        value: str,
+        variable_group_id: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Crea una nuova variabile.
 
-        Endpoint: POST /variable/addVariable
+        Endpoint: POST v3/settings/variables
 
         Parameters
         ----------
@@ -83,41 +85,43 @@ class VariableAPI:
             Nome della variabile.
         value : str
             Valore iniziale.
-        var_type : str
-            Tipo (es. "1" = testo, "2" = numero).
+        variable_group_id : str, optional
+            ID del gruppo di appartenenza.
+        description : str, optional
+            Descrizione della variabile.
         """
-        payload: Dict[str, Any] = {"name": name, "value": value, "type": var_type}
-        return self._client.form_post("v3/variable/addVariable", data=payload)
+        payload: Dict[str, Any] = {"name": name, "value": value}
+        if variable_group_id:
+            payload["variable_group_id"] = variable_group_id
+        if description:
+            payload["description"] = description
+        return self._client.form_post("v3/settings/variables", data=payload)
 
-    def update(self, variable_id: str, value: str) -> Dict[str, Any]:
+    def update(
+        self,
+        variable_id: str,
+        value: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Aggiorna il valore di una variabile.
 
-        Endpoint: POST /variable/updateVariable
+        Endpoint: PUT v3/settings/variables/{variable_id}
         """
-        payload: Dict[str, Any] = {"variableId": variable_id, "value": value}
-        return self._client.form_post("v3/variable/updateVariable", data=payload)
+        payload: Dict[str, Any] = {}
+        if value is not None:
+            payload["value"] = value
+        if description is not None:
+            payload["description"] = description
+        return self._client.put(f"v3/settings/variables/{variable_id}", json=payload)
 
     def delete(self, variable_id: str) -> Dict[str, Any]:
         """
         Elimina una variabile.
 
-        Endpoint: DELETE /variable/deleteVariable
+        Endpoint: DELETE v3/settings/variables/{variable_id}
         """
-        return self._client.delete("v3/variable/deleteVariable",
-                                   params={"variableId": variable_id})
-
-    def get_by_group(self, group_id: str) -> List[Dict[str, Any]]:
-        """
-        Recupera le variabili appartenenti a un gruppo.
-
-        Endpoint: GET /variable/getVariablesByGroup
-        """
-        data     = self._client.get("v3/variable/getVariablesByGroup",
-                                    params={"groupId": group_id})
-        response = data.get("response", data)
-        result   = response.get("result", [])
-        return result if isinstance(result, list) else []
+        return self._client.delete(f"v3/settings/variables/{variable_id}")
 
     # ------------------------------------------------------------------
     # Gruppi
@@ -127,50 +131,19 @@ class VariableAPI:
         """
         Recupera tutti i gruppi di variabili.
 
-        Endpoint: GET /variable/getVariableGroups
+        Endpoint: GET v3/settings/variablegroups
         """
-        data     = self._client.get("v3/variable/getVariableGroups")
-        response = data.get("response", data)
-        result   = response.get("result", [])
+        data   = self._client.get("v3/settings/variablegroups")
+        result = data.get("data", data.get("response", {}).get("result", []))
         return result if isinstance(result, list) else []
 
-    def get_group(self, group_id: str) -> Dict[str, Any]:
-        """
-        Recupera uno specifico gruppo.
-
-        Endpoint: GET /variable/getVariableGroup
-        """
-        data     = self._client.get("v3/variable/getVariableGroup",
-                                    params={"groupId": group_id})
-        response = data.get("response", data)
-        result   = response.get("result", {})
-        return result if isinstance(result, dict) else {}
-
-    def add_group(self, group_name: str, description: Optional[str] = None) -> Dict[str, Any]:
+    def add_group(self, name: str, description: Optional[str] = None) -> Dict[str, Any]:
         """
         Crea un nuovo gruppo di variabili.
 
-        Endpoint: POST /variable/addVariableGroup
+        Endpoint: POST v3/settings/variablegroups
         """
-        payload: Dict[str, Any] = {"groupName": group_name}
+        payload: Dict[str, Any] = {"name": name}
         if description:
             payload["description"] = description
-        return self._client.form_post("v3/variable/addVariableGroup", data=payload)
-
-    def update_group(self, group_id: str, group_name: str) -> Dict[str, Any]:
-        """
-        Aggiorna un gruppo di variabili.
-
-        Endpoint: PUT /variable/updateVariableGroup
-        """
-        payload: Dict[str, Any] = {"groupId": group_id, "groupName": group_name}
-        return self._client.put("v3/variable/updateVariableGroup", json=payload)
-
-    def delete_group(self, group_id: str) -> Dict[str, Any]:
-        """
-        Elimina un gruppo di variabili.
-
-        Endpoint: DELETE /variable/deleteVariableGroup
-        """
-        return self._client.delete("v3/variable/deleteVariableGroup",
-                                   params={"groupId": group_id})
+        return self._client.form_post("v3/settings/variablegroups", data=payload)

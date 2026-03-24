@@ -382,30 +382,38 @@ class PeopleAttendanceAPI:
 
     def get_entries(
         self,
-        user_id: str,
-        from_date: str,
-        to_date: str,
+        employee_zoho_id: Optional[str] = None,
+        from_date: Optional[str] = None,
+        to_date: Optional[str] = None,
+        limit: int = 200,
+        offset: int = 0,
     ) -> Any:
         """
         Recupera le timbrature in un intervallo di date.
 
-        Endpoint: GET /people/api/v3/attendance/getEntries
+        Endpoint: GET v3/attendance/entries
 
         Parameters
         ----------
-        user_id : str
-            Email o ID dipendente.
-        from_date : str
+        employee_zoho_id : str, optional
+            ID Zoho del dipendente.
+        from_date : str, optional
             Data inizio nel formato dd/MM/yyyy.
-        to_date : str
+        to_date : str, optional
             Data fine nel formato dd/MM/yyyy.
+        limit : int
+            Numero massimo di record.
+        offset : int
+            Offset di paginazione.
         """
-        params: Dict[str, Any] = {
-            "userId":   user_id,
-            "fromDate": _to_zoho_date(from_date),
-            "toDate":   _to_zoho_date(to_date),
-        }
-        return self._client.get("v3/attendance/getEntries", params=params)
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        if employee_zoho_id:
+            params["employee_zoho_ids"] = employee_zoho_id
+        if from_date:
+            params["from_date"] = _to_zoho_date(from_date)
+        if to_date:
+            params["to_date"] = _to_zoho_date(to_date)
+        return self._client.get("v3/attendance/entries", params=params)
 
     # ------------------------------------------------------------------
     # Invio presenze – endpoint interno (AttendanceAction.zp)
@@ -491,105 +499,18 @@ class PeopleAttendanceAPI:
             return result
 
         # 2. Fallback REST API v3
-        payload = self._client.people_params({
-            "employeeId": employee_id,
-            "checkIn":    check_in,
-            "checkOut":   check_out,
-            "date":     date_str,
-        })
-        return self._client.form_post("v3/attendance/addEntries", data=payload)
-
-    def get_specific_entry(self, attendance_id: str) -> Dict[str, Any]:
-        """
-        Recupera una specifica timbratura.
-
-        Endpoint: GET /attendance/getSpecificEntry
-
-        Parameters
-        ----------
-        attendance_id : str
-            ID univoco della timbratura.
-        """
-        return self._client.get("v3/attendance/getSpecificEntry",
-                                params={"attendanceId": attendance_id})
-
-    def update_entry(
-        self,
-        attendance_id: str,
-        check_in: str,
-        check_out: str,
-        reason: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Modifica una timbratura esistente.
-
-        Endpoint: PUT /attendance/updateEntry
-
-        Parameters
-        ----------
-        attendance_id : str
-            ID univoco della timbratura.
-        check_in : str
-            Nuovo orario di ingresso HH:MM.
-        check_out : str
-            Nuovo orario di uscita HH:MM.
-        reason : str, optional
-            Motivo della modifica.
-        """
         payload: Dict[str, Any] = {
-            "attendanceId": attendance_id,
-            "checkIn":      check_in,
-            "checkOut":     check_out,
+            "employee_zoho_id": employee_id,
+            "check_in":         check_in,
+            "check_out":        check_out,
+            "date":             date_str,
         }
-        if reason:
-            payload["reason"] = reason
-        return self._client.put("v3/attendance/updateEntry", json=payload)
-
-    def delete_specific_entry(self, attendance_id: str) -> Dict[str, Any]:
-        """
-        Elimina una specifica timbratura.
-
-        Endpoint: DELETE /attendance/deleteSpecificEntry
-
-        Parameters
-        ----------
-        attendance_id : str
-            ID univoco della timbratura.
-        """
-        return self._client.delete("v3/attendance/deleteSpecificEntry",
-                                   params={"attendanceId": attendance_id})
-
-    def delete_entries(
-        self,
-        user_id: str,
-        from_date: str,
-        to_date: str,
-    ) -> Dict[str, Any]:
-        """
-        Elimina tutte le timbrature di un dipendente in un intervallo di date.
-
-        Endpoint: DELETE /attendance/deleteEntries
-
-        Parameters
-        ----------
-        user_id : str
-            Email o ID dipendente.
-        from_date : str
-            Data inizio nel formato dd-MMM-yyyy (es. "01-Mar-2026").
-        to_date : str
-            Data fine nel formato dd-MMM-yyyy (es. "31-Mar-2026").
-        """
-        params: Dict[str, Any] = {
-            "userId":   user_id,
-            "fromDate": _to_zoho_date(from_date),
-            "toDate":   _to_zoho_date(to_date),
-        }
-        return self._client.delete("v3/attendance/deleteEntries", params=params)
+        return self._client.form_post("v3/attendance/entries", data=payload)
 
     def punch_in(
         self,
-        employee_id: str,
-        check_in_time: str,
+        employee_zoho_id: str,
+        punch_in_time: str,
         location: Optional[str] = None,
         latitude: Optional[str] = None,
         longitude: Optional[str] = None,
@@ -597,13 +518,13 @@ class PeopleAttendanceAPI:
         """
         Registra una timbratura di ingresso (punch-in).
 
-        Endpoint: POST /attendance/punchIn
+        Endpoint: POST v3/attendance/entries/punch-in
 
         Parameters
         ----------
-        employee_id : str
-            ID dipendente.
-        check_in_time : str
+        employee_zoho_id : str
+            ID Zoho del dipendente.
+        punch_in_time : str
             Orario di ingresso HH:mm.
         location : str, optional
             Nome della posizione.
@@ -613,8 +534,8 @@ class PeopleAttendanceAPI:
             Longitudine GPS.
         """
         payload: Dict[str, Any] = {
-            "employeeId":   employee_id,
-            "checkInTime":  check_in_time,
+            "employee_zoho_id": employee_zoho_id,
+            "punch_in_time":    punch_in_time,
         }
         if location:
             payload["location"] = location
@@ -622,32 +543,48 @@ class PeopleAttendanceAPI:
             payload["latitude"] = latitude
         if longitude:
             payload["longitude"] = longitude
-        return self._client.form_post("v3/attendance/punchIn", data=payload)
+        return self._client.form_post("v3/attendance/entries/punch-in", data=payload)
 
-    def file_upload(
+    def punch_out(
         self,
-        file_path: str,
-        employee_id: Optional[str] = None,
+        employee_zoho_id: str,
+        punch_out_time: str,
+        location: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Carica un file CSV/XLS con le presenze.
+        Registra una timbratura di uscita (punch-out).
 
-        Endpoint: POST /attendance/fileUpload
+        Endpoint: POST v3/attendance/entries/punch-out
 
         Parameters
         ----------
-        file_path : str
-            Percorso del file CSV o XLS da caricare.
-        employee_id : str, optional
-            ID dipendente (se il file riguarda un singolo dipendente).
+        employee_zoho_id : str
+            ID Zoho del dipendente.
+        punch_out_time : str
+            Orario di uscita HH:mm.
+        location : str, optional
+            Nome della posizione.
         """
-        data: Dict[str, Any] = {}
-        if employee_id:
-            data["employeeId"] = employee_id
-        with open(file_path, "rb") as f:
-            return self._client.upload("v3/attendance/fileUpload",
-                                       files={"file": f},
-                                       data=data or None)
+        payload: Dict[str, Any] = {
+            "employee_zoho_id": employee_zoho_id,
+            "punch_out_time":   punch_out_time,
+        }
+        if location:
+            payload["location"] = location
+        return self._client.form_post("v3/attendance/entries/punch-out", data=payload)
+
+    def delete_entry(self, entry_id: str) -> Dict[str, Any]:
+        """
+        Elimina una timbratura specifica.
+
+        Endpoint: DELETE v3/attendance/entries/{entry_id}
+
+        Parameters
+        ----------
+        entry_id : str
+            ID univoco della timbratura.
+        """
+        return self._client.delete(f"v3/attendance/entries/{entry_id}")
 
     def add_bulk(
         self,

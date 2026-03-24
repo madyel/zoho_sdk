@@ -1,28 +1,15 @@
 """
-PeopleLeaveAPI  –  Zoho People Leave REST API
-==============================================
+PeopleLeaveAPI  –  Zoho People Leave Tracker API v3
+=====================================================
 
-Gestisce l'intero ciclo delle assenze e delle maturazioni (grant).
+Endpoint Leave Tracker:
+    GET    v3/leave-tracker/leaves           (richieste ferie)
+    POST   v3/leave-tracker/leaves           (nuova richiesta)
+    GET    v3/leave-tracker/balances         (saldo residuo)
+    GET    v3/leave-tracker/settings/leavetypes  (tipi di ferie)
+    POST   v3/leave-tracker/grants           (nuova maturazione)
 
-Endpoint Leave (richieste):
-    GET    /leave/getLeaveRequests
-    GET    /leave/getSpecificLeaveRequest
-    POST   /leave/addLeaveRequest
-    PUT    /leave/updateLeaveRequest
-    PATCH  /leave/cancelLeaveRequest
-    DELETE /leave/deleteLeaveRequests
-    POST   /leave/fileUploadLeave
-
-Endpoint Grant (maturazione):
-    GET    /leave/getLeaveGrantRequests
-    GET    /leave/getSpecificLeaveGrantRequests
-    POST   /leave/addLeaveGrantRequests
-    PUT    /leave/updateLeaveGrantRequests
-    PATCH  /leave/cancelLeaveGrantRequest
-    DELETE /leave/deleteLeaveGrantRequests
-    POST   /leave/fileUploadGrant
-
-Scope OAuth:  ZohoPeople.leave.ALL
+Scope OAuth:  ZOHOPEOPLE.leave.READ / ZOHOPEOPLE.leave.CREATE
 Formato date: dd-MMM-yyyy (es. 01-Mar-2026)
 """
 
@@ -38,337 +25,188 @@ from .attendance import _to_zoho_date
 
 class PeopleLeaveAPI:
     """
-    Wrapper per le API Zoho People Leave.
+    Wrapper per le API Zoho People Leave Tracker v3.
 
     Usato tramite:
-        client.leave.get_requests(user_id, status="Pending")
-        client.leave.get_specific_request(request_id)
-        client.leave.add_request(user_id, "Annual Leave", "24/03/2026", "27/03/2026")
-        client.leave.update_request(request_id, "24/03/2026", "28/03/2026")
-        client.leave.cancel_request(request_id)
-        client.leave.delete_requests(request_id)
-        client.leave.get_balance(user_id)
-        client.leave.update_status(request_id, status=1)  # 1=approva
-        client.leave.get_grant_requests(user_id)
-        client.leave.add_grant_request(user_id, leave_type_id, count, reason)
-
-    Parameters
-    ----------
-    client : ZohoVerticalClient
-        Istanza del client autenticato con OAuth.
+        client.leave.get_requests(from_date="01/03/2026", to_date="31/03/2026")
+        client.leave.add_request(employee_zoho_id, leave_type_id, from_date, to_date)
+        client.leave.get_balance(employee_zoho_id)
+        client.leave.get_leave_types()
+        client.leave.add_grant(employee_zoho_id, leave_type_id, count)
     """
 
     def __init__(self, client: "ZohoVerticalClient"):
         self._client = client
 
     # ------------------------------------------------------------------
-    # Lettura richieste
+    # Richieste di ferie
     # ------------------------------------------------------------------
 
     def get_requests(
         self,
-        user_id: Optional[str] = None,
-        status: Optional[str] = None,
         from_date: Optional[str] = None,
         to_date: Optional[str] = None,
-        page: int = 1,
-        per_page: int = 200,
+        employee_zoho_id: Optional[str] = None,
+        approval_status: Optional[str] = None,
+        limit: int = 200,
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
         """
         Recupera le richieste di ferie.
 
-        Endpoint: GET /leave/getLeaveRequests
+        Endpoint: GET v3/leave-tracker/leaves
 
         Parameters
         ----------
-        user_id : str, optional
-            Email o ID dipendente. Se omesso restituisce richieste dell'utente corrente.
-        status : str, optional
-            Filtra per stato: "Approved", "Pending", "Rejected", "Cancelled".
         from_date, to_date : str, optional
-            Intervallo di date in formato dd/MM/yyyy.
-        page : int
-            Indice di partenza per la paginazione (sIndex), default 1.
-        per_page : int
-            Numero di record per pagina (resLen), max 200.
-
-        Returns
-        -------
-        list[dict]
-            Lista di richieste ferie.
+            Intervallo di date in formato dd/MM/yyyy (vengono convertite in dd-MMM-yyyy).
+        employee_zoho_id : str, optional
+            ID Zoho del dipendente. Se omesso restituisce tutte.
+        approval_status : str, optional
+            Filtra per stato: "Approved", "Pending", "Rejected", "Cancelled".
+        limit : int
+            Numero massimo di record da restituire.
+        offset : int
+            Offset di paginazione.
         """
-        params: Dict[str, Any] = {
-            "sIndex": page,
-            "resLen": per_page,
-        }
-        if user_id:
-            params["userId"] = user_id
-        if status:
-            params["allowedStatus"] = status
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
         if from_date:
-            params["fromDate"] = _to_zoho_date(from_date)
+            params["from_date"] = _to_zoho_date(from_date)
         if to_date:
-            params["toDate"] = _to_zoho_date(to_date)
+            params["to_date"] = _to_zoho_date(to_date)
+        if employee_zoho_id:
+            params["employee_zoho_ids"] = employee_zoho_id
+        if approval_status:
+            params["approval_status"] = approval_status
 
-        data     = self._client.get("v3/leave/getLeaveRequests", params=params)
-        response = data.get("response", data)
-        result   = response.get("result", [])
+        data   = self._client.get("v3/leave-tracker/leaves", params=params)
+        result = data.get("data", data.get("response", {}).get("result", []))
         return result if isinstance(result, list) else []
-
-    def get_specific_request(self, request_id: str) -> Dict[str, Any]:
-        """
-        Recupera una specifica richiesta di ferie.
-
-        Endpoint: GET /leave/getSpecificLeaveRequest
-
-        Parameters
-        ----------
-        request_id : str
-            ID della richiesta ferie.
-        """
-        data     = self._client.get("v3/leave/getSpecificLeaveRequest", params={"requestId": request_id})
-        response = data.get("response", data)
-        result   = response.get("result", {})
-        return result if isinstance(result, dict) else {}
-
-    # ------------------------------------------------------------------
-    # Invio richiesta
-    # ------------------------------------------------------------------
 
     def add_request(
         self,
-        user_id: str,
-        leave_type: str,
+        employee_zoho_id: str,
+        leave_type_id: str,
         from_date: str,
         to_date: str,
-        is_half_day: bool = False,
         reason: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Invia una nuova richiesta di ferie.
 
-        Endpoint: POST /leave/addLeaveRequest
+        Endpoint: POST v3/leave-tracker/leaves
 
         Parameters
         ----------
-        user_id : str
-            Email o ID del dipendente richiedente.
-        leave_type : str
-            Nome del tipo ferie (es. "Annual Leave", "Sick Leave").
+        employee_zoho_id : str
+            ID Zoho del dipendente richiedente.
+        leave_type_id : str
+            ID del tipo di ferie.
         from_date, to_date : str
             Date in formato dd/MM/yyyy.
-        is_half_day : bool
-            True per richiedere mezza giornata.
         reason : str, optional
             Motivazione della richiesta.
-
-        Returns
-        -------
-        dict
-            Risposta API con ``response.result.requestId``.
         """
         payload: Dict[str, Any] = {
-            "userId":    user_id,
-            "leavetype": leave_type,
-            "fromDate":  _to_zoho_date(from_date),
-            "toDate":    _to_zoho_date(to_date),
-            "isHalfDay": is_half_day,
+            "employee_zoho_id": employee_zoho_id,
+            "leave_type_id":    leave_type_id,
+            "from_date":        _to_zoho_date(from_date),
+            "to_date":          _to_zoho_date(to_date),
         }
         if reason:
             payload["reason"] = reason
-
-        return self._client.form_post("v3/leave/addLeaveRequest", data=payload)
-
-    def update_request(
-        self,
-        request_id: str,
-        from_date: str,
-        to_date: str,
-    ) -> Dict[str, Any]:
-        """
-        Modifica una richiesta di ferie esistente.
-
-        Endpoint: PUT /leave/updateLeaveRequest
-
-        Parameters
-        ----------
-        request_id : str
-            ID della richiesta ferie da modificare.
-        from_date, to_date : str
-            Nuove date in formato dd/MM/yyyy.
-        """
-        payload: Dict[str, Any] = {
-            "requestId": request_id,
-            "fromDate":  _to_zoho_date(from_date),
-            "toDate":    _to_zoho_date(to_date),
-        }
-        return self._client.put("v3/leave/updateLeaveRequest", json=payload)
-
-    def cancel_request(self, request_id: str) -> Dict[str, Any]:
-        """
-        Cancella una richiesta di ferie.
-
-        Endpoint: PATCH /leave/cancelLeaveRequest
-
-        Parameters
-        ----------
-        request_id : str
-            ID della richiesta ferie da cancellare.
-        """
-        return self._client.patch("v3/leave/cancelLeaveRequest", json={"requestId": request_id})
-
-    def delete_requests(self, request_id: str) -> Dict[str, Any]:
-        """
-        Elimina una richiesta di ferie.
-
-        Endpoint: DELETE /leave/deleteLeaveRequests
-
-        Parameters
-        ----------
-        request_id : str
-            ID della richiesta ferie da eliminare.
-        """
-        return self._client.delete("v3/leave/deleteLeaveRequests", params={"requestId": request_id})
-
-    def file_upload_leave(self, request_id: str, file_path: str) -> Dict[str, Any]:
-        """
-        Carica un allegato per una richiesta di ferie.
-
-        Endpoint: POST /leave/fileUploadLeave
-
-        Parameters
-        ----------
-        request_id : str
-            ID della richiesta ferie.
-        file_path : str
-            Percorso del file da caricare.
-        """
-        with open(file_path, "rb") as f:
-            return self._client.upload("v3/leave/fileUploadLeave",
-                                       files={"file": f},
-                                       data={"requestId": request_id})
+        return self._client.form_post("v3/leave-tracker/leaves", data=payload)
 
     # ------------------------------------------------------------------
     # Saldo residuo
     # ------------------------------------------------------------------
-    # Grant API (Maturazione ferie)
-    # ------------------------------------------------------------------
 
-    def get_grant_requests(
+    def get_balance(
         self,
-        user_id: Optional[str] = None,
-        status: Optional[str] = None,
-        page: int = 1,
-        per_page: int = 200,
-    ) -> List[Dict[str, Any]]:
+        employee_zoho_id: str,
+        leave_type_ids: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
-        Recupera le richieste di maturazione ferie (grant).
+        Recupera il saldo residuo ferie di un dipendente.
 
-        Endpoint: GET /leave/getLeaveGrantRequests
+        Endpoint: GET v3/leave-tracker/balances
 
         Parameters
         ----------
-        user_id : str, optional
-            Email o ID dipendente.
-        status : str, optional
-            Filtra per stato.
+        employee_zoho_id : str
+            ID Zoho del dipendente.
+        leave_type_ids : str, optional
+            ID tipo ferie (per filtrare un tipo specifico).
         """
-        params: Dict[str, Any] = {"sIndex": page, "resLen": per_page}
-        if user_id:
-            params["userId"] = user_id
-        if status:
-            params["status"] = status
+        params: Dict[str, Any] = {"employee_zoho_id": employee_zoho_id}
+        if leave_type_ids:
+            params["leave_type_ids"] = leave_type_ids
+        data   = self._client.get("v3/leave-tracker/balances", params=params)
+        result = data.get("data", data)
+        return result if isinstance(result, dict) else data
 
-        data     = self._client.get("v3/leave/getLeaveGrantRequests", params=params)
-        response = data.get("response", data)
-        result   = response.get("result", [])
+    # ------------------------------------------------------------------
+    # Tipi di ferie
+    # ------------------------------------------------------------------
+
+    def get_leave_types(
+        self,
+        employee_zoho_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Recupera i tipi di ferie disponibili.
+
+        Endpoint: GET v3/leave-tracker/settings/leavetypes
+
+        Parameters
+        ----------
+        employee_zoho_id : str, optional
+            ID Zoho del dipendente (per vedere i tipi a lui assegnati).
+        """
+        params: Dict[str, Any] = {}
+        if employee_zoho_id:
+            params["employee_zoho_id"] = employee_zoho_id
+        data   = self._client.get("v3/leave-tracker/settings/leavetypes", params=params or None)
+        result = data.get("data", data.get("response", {}).get("result", []))
         return result if isinstance(result, list) else []
 
-    def get_specific_grant_request(self, request_id: str) -> Dict[str, Any]:
-        """
-        Recupera una specifica richiesta di maturazione.
+    # ------------------------------------------------------------------
+    # Grant (maturazione ferie)
+    # ------------------------------------------------------------------
 
-        Endpoint: GET /leave/getSpecificLeaveGrantRequests
-        """
-        data     = self._client.get("v3/leave/getSpecificLeaveGrantRequests",
-                                    params={"requestId": request_id})
-        response = data.get("response", data)
-        result   = response.get("result", {})
-        return result if isinstance(result, dict) else {}
-
-    def add_grant_request(
+    def add_grant(
         self,
-        user_id: str,
+        employee_zoho_id: str,
         leave_type_id: str,
         count: float,
         reason: Optional[str] = None,
+        date: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Crea una nuova richiesta di maturazione ferie.
+        Crea una nuova maturazione ferie (grant).
 
-        Endpoint: POST /leave/addLeaveGrantRequests
+        Endpoint: POST v3/leave-tracker/grants
 
         Parameters
         ----------
-        user_id : str
-            Email o ID dipendente.
+        employee_zoho_id : str
+            ID Zoho del dipendente.
         leave_type_id : str
             ID del tipo di ferie.
         count : float
             Numero di giorni da maturare.
         reason : str, optional
             Motivazione.
+        date : str, optional
+            Data di riferimento in formato dd/MM/yyyy.
         """
         payload: Dict[str, Any] = {
-            "userId":      user_id,
-            "leaveTypeId": leave_type_id,
-            "count":       count,
+            "employee_zoho_id": employee_zoho_id,
+            "leave_type_id":    leave_type_id,
+            "count":            count,
         }
         if reason:
             payload["reason"] = reason
-        return self._client.form_post("v3/leave/addLeaveGrantRequests", data=payload)
-
-    def update_grant_request(
-        self,
-        request_id: str,
-        count: float,
-        reason: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Aggiorna una richiesta di maturazione esistente.
-
-        Endpoint: PUT /leave/updateLeaveGrantRequests
-        """
-        payload: Dict[str, Any] = {"requestId": request_id, "count": count}
-        if reason:
-            payload["reason"] = reason
-        return self._client.put("v3/leave/updateLeaveGrantRequests", json=payload)
-
-    def cancel_grant_request(self, request_id: str) -> Dict[str, Any]:
-        """
-        Cancella una richiesta di maturazione.
-
-        Endpoint: PATCH /leave/cancelLeaveGrantRequest
-        """
-        return self._client.patch("v3/leave/cancelLeaveGrantRequest",
-                                  json={"requestId": request_id})
-
-    def delete_grant_request(self, request_id: str) -> Dict[str, Any]:
-        """
-        Elimina una richiesta di maturazione.
-
-        Endpoint: DELETE /leave/deleteLeaveGrantRequests
-        """
-        return self._client.delete("v3/leave/deleteLeaveGrantRequests",
-                                   params={"requestId": request_id})
-
-    def file_upload_grant(self, request_id: str, file_path: str) -> Dict[str, Any]:
-        """
-        Carica un allegato per una richiesta di maturazione.
-
-        Endpoint: POST /leave/fileUploadGrant
-        """
-        with open(file_path, "rb") as f:
-            return self._client.upload("v3/leave/fileUploadGrant",
-                                       files={"file": f},
-                                       data={"requestId": request_id})
+        if date:
+            payload["date"] = _to_zoho_date(date)
+        return self._client.form_post("v3/leave-tracker/grants", data=payload)

@@ -760,43 +760,67 @@ def example_15_leave():
         skip("Client non inizializzato")
         return
 
-    # --- Saldo residuo (rimosso da API v3) ------------------------------------
-    info("Saldo residuo ferie: non disponibile nell'API v3 (endpoint getLeaveRecord rimosso)")
+    # --- Saldo residuo (leave-tracker/balances) ----------------------------
+    info("Saldo residuo ferie (leave-tracker/balances):")
+    try:
+        balance = client.leave.get_balance(
+            employee_zoho_id=EMPLOYEE_ID,
+        )
+        ok(f"Saldo: {balance}")
+    except ZohoAPIError as e:
+        err(f"get_balance: {e}")
+
+    # --- Tipi di ferie ---------------------------------------------------
+    info("Tipi di ferie disponibili (leave-tracker/settings/leavetypes):")
+    try:
+        leave_types = client.leave.get_leave_types(
+            employee_zoho_id=EMPLOYEE_ID if EMPLOYEE_ID != "self" else None,
+        )
+        ok(f"Tipi trovati: {len(leave_types)}")
+        for lt in leave_types[:3]:
+            print(f"    • {lt.get('leave_type_id', lt.get('id', '?'))}  {lt.get('name', lt.get('leave_type_name', '?'))}")
+    except ZohoAPIError as e:
+        err(f"get_leave_types: {e}")
 
     # --- Lista richieste pendenti ----------------------------------------
-    info("Richieste ferie in stato Pending (getLeaveRequests):")
+    info("Richieste ferie in stato Pending (leave-tracker/leaves):")
+    from datetime import date as _date
+    today = _date.today()
+    first_of_month = today.replace(day=1).strftime("%d/%m/%Y")
+    today_str = today.strftime("%d/%m/%Y")
     try:
         reqs = client.leave.get_requests(
-            user_id=None if EMPLOYEE_ID == "self" else EMPLOYEE_ID,
-            status="Pending",
+            employee_zoho_id=None if EMPLOYEE_ID == "self" else EMPLOYEE_ID,
+            approval_status="Pending",
+            from_date=first_of_month,
+            to_date=today_str,
         )
         ok(f"Richieste Pending: {len(reqs)}")
         for r in reqs[:3]:
-            rid   = r.get("requestId", "?")
-            lt    = r.get("leaveType", "?")
-            fd    = r.get("fromDate",  "?")
-            td    = r.get("toDate",    "?")
-            print(f"    • [{rid}]  {lt:20}  {fd} → {td}")
+            rid   = r.get("requestId", r.get("leave_id", "?"))
+            lt    = r.get("leaveType", r.get("leave_type_name", "?"))
+            fd    = r.get("fromDate",  r.get("from_date", "?"))
+            td    = r.get("toDate",    r.get("to_date",   "?"))
+            print(f"    • [{rid}]  {str(lt):20}  {fd} → {td}")
         if len(reqs) > 3:
             info(f"  … e altre {len(reqs) - 3}")
     except ZohoAPIError as e:
-        err(f"getLeaveRequests: {e}")
+        err(f"get_requests: {e}")
 
     # --- DRY RUN: invia richiesta ----------------------------------------
-    info("DRY RUN: addLeaveRequest")
-    from datetime import date as _date
+    info("DRY RUN: add_request (leave-tracker/leaves)")
     next_month = TEST_MONTH % 12 + 1
     next_year  = TEST_YEAR + (1 if next_month == 1 else 0)
     sample_from = _date(next_year, next_month, 1).strftime("%d/%m/%Y")
     sample_to   = _date(next_year, next_month, 3).strftime("%d/%m/%Y")
     print(f"    client.leave.add_request(")
-    print(f"        user_id='{EMPLOYEE_ID}',")
-    print(f"        leave_type='Annual Leave',")
+    print(f"        employee_zoho_id='{EMPLOYEE_ID}',")
+    print(f"        leave_type_id='<ID_TIPO_FERIE>',")
     print(f"        from_date='{sample_from}',")
     print(f"        to_date='{sample_to}',")
     print(f"        reason='Ferie pianificate',")
     print(f"    )")
-    print(f"    # endpoint: POST /people/api/v3/leave/addLeaveRequest")
+    print(f"    # endpoint: POST /people/api/v3/leave-tracker/leaves")
     print(f"    # date v3:  {_to_zoho_date(sample_from)} → {_to_zoho_date(sample_to)}")
     ok("DRY RUN completato – nessuna modifica effettuata")
 
