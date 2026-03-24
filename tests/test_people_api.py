@@ -512,7 +512,7 @@ class TestEmployeeHTTP:
         monkeypatch.setattr(client, "get", mock_get)
         client.employee.list()
 
-        assert captured["path"] == "forms/json/P_EmployeeView/getRecords"
+        assert captured["path"] == "v3/forms/P_EmployeeView/getRecords"
         assert captured["params"]["page"]     == 1
         assert captured["params"]["per_page"] == 200
 
@@ -580,7 +580,7 @@ class TestEmployeeHTTP:
         monkeypatch.setattr(client, "get", mock_get)
         emp = client.employee.get("P-001")
 
-        assert captured["path"] == "employee/getRecordByID"
+        assert captured["path"] == "v3/employee/getRecordByID"
         assert captured["params"]["empId"] == "P-001"
         assert emp["SurnameName"] == "Mario Rossi"
 
@@ -595,7 +595,7 @@ class TestEmployeeHTTP:
         monkeypatch.setattr(client, "get", mock_get)
         client.employee.get_tree("P-001")
 
-        assert captured["path"] == "employee/getEmployeeTree"
+        assert captured["path"] == "v3/employee/getEmployeeTree"
         assert captured["params"]["erecno"] == "P-001"
 
     def test_add_record_calls_post(self, client, monkeypatch):
@@ -609,7 +609,7 @@ class TestEmployeeHTTP:
         monkeypatch.setattr(client, "post", mock_post)
         client.employee.add_record({"firstName": "Nuovo", "lastName": "Dipendente"})
 
-        assert captured["path"] == "employee/addRecord"
+        assert captured["path"] == "v3/employee/addRecord"
         assert captured["json"]["firstName"] == "Nuovo"
 
     def test_update_record_calls_put(self, client, monkeypatch):
@@ -623,7 +623,7 @@ class TestEmployeeHTTP:
         monkeypatch.setattr(client, "put", mock_put)
         client.employee.update_record("P-001", {"department": "HR"})
 
-        assert captured["path"] == "employee/updateRecord"
+        assert captured["path"] == "v3/employee/updateRecord"
         assert captured["json"]["empId"]      == "P-001"
         assert captured["json"]["department"] == "HR"
 
@@ -653,7 +653,7 @@ class TestLeaveHTTP:
         monkeypatch.setattr(client, "get", mock_get)
         client.leave.get_requests(user_id="mario@azienda.it", status="Pending")
 
-        assert captured["path"] == "leave/getLeaveRequests"
+        assert captured["path"] == "v3/leave/getLeaveRequests"
         assert captured["params"]["userId"]        == "mario@azienda.it"
         assert captured["params"]["allowedStatus"] == "Pending"
 
@@ -688,7 +688,7 @@ class TestLeaveHTTP:
             reason="Vacanza",
         )
 
-        assert captured["path"] == "leave/addLeaveRequest"
+        assert captured["path"] == "v3/leave/addLeaveRequest"
         assert captured["data"]["userId"]    == "mario@azienda.it"
         assert captured["data"]["leavetype"] == "Annual Leave"
         assert captured["data"]["fromDate"]  == "24-Mar-2026"
@@ -708,7 +708,7 @@ class TestLeaveHTTP:
         monkeypatch.setattr(client, "get", mock_get)
         balance = client.leave.get_balance("mario@azienda.it")
 
-        assert captured["path"] == "leave/getLeaveRecord"
+        assert captured["path"] == "v3/leave/getLeaveRecord"
         assert captured["params"]["userId"] == "mario@azienda.it"
         assert len(balance) == 1
         assert balance[0]["leaveType"] == "Annual Leave"
@@ -724,7 +724,7 @@ class TestLeaveHTTP:
         monkeypatch.setattr(client, "form_post", mock_form_post)
         client.leave.update_status("REQ-789", status=1, comments="Approvato")
 
-        assert captured["path"] == "leave/updateLeaveRequestStatus"
+        assert captured["path"] == "v3/leave/updateLeaveRequestStatus"
         assert captured["data"]["requestId"] == "REQ-789"
         assert captured["data"]["status"]    == 1
         assert captured["data"]["comments"]  == "Approvato"
