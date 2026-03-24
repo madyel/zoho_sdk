@@ -56,7 +56,7 @@ class FilesAPI:
 
         Endpoint: GET /files/getFolders
         """
-        data     = self._client.get("files/getFolders")
+        data     = self._client.get("v3/files/getFolders")
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -67,7 +67,7 @@ class FilesAPI:
 
         Endpoint: GET /files/getAllowedFolders
         """
-        data     = self._client.get("files/getAllowedFolders")
+        data     = self._client.get("v3/files/getAllowedFolders")
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -78,7 +78,7 @@ class FilesAPI:
 
         Endpoint: GET /files/getFolderView
         """
-        return self._client.get("files/getFolderView", params={"folderId": folder_id})
+        return self._client.get("v3/files/getFolderView", params={"folderId": folder_id})
 
     def get_subfolders(self, folder_id: str) -> List[Dict[str, Any]]:
         """
@@ -86,7 +86,7 @@ class FilesAPI:
 
         Endpoint: GET /files/getSubfolders
         """
-        data     = self._client.get("files/getSubfolders", params={"folderId": folder_id})
+        data     = self._client.get("v3/files/getSubfolders", params={"folderId": folder_id})
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -104,7 +104,7 @@ class FilesAPI:
         payload: Dict[str, Any] = {"folderName": folder_name}
         if parent_folder_id:
             payload["parentFolderId"] = parent_folder_id
-        return self._client.form_post("files/addFolder", data=payload)
+        return self._client.form_post("v3/files/addFolder", data=payload)
 
     def edit_folder(self, folder_id: str, folder_name: str) -> Dict[str, Any]:
         """
@@ -113,7 +113,7 @@ class FilesAPI:
         Endpoint: PUT /files/editFolder
         """
         payload: Dict[str, Any] = {"folderId": folder_id, "folderName": folder_name}
-        return self._client.put("files/editFolder", json=payload)
+        return self._client.put("v3/files/editFolder", json=payload)
 
     # ------------------------------------------------------------------
     # File
@@ -130,7 +130,7 @@ class FilesAPI:
         Endpoint: GET /files/getAllFiles
         """
         params: Dict[str, Any] = {"folderId": folder_id, "sIndex": page}
-        data     = self._client.get("files/getAllFiles", params=params)
+        data     = self._client.get("v3/files/getAllFiles", params=params)
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -141,7 +141,7 @@ class FilesAPI:
 
         Endpoint: GET /files/viewFile
         """
-        return self._client.get("files/viewFile", params={"fileId": file_id})
+        return self._client.get("v3/files/viewFile", params={"fileId": file_id})
 
     def download_file(self, file_id: str) -> bytes:
         """
@@ -159,7 +159,7 @@ class FilesAPI:
         bytes
             Contenuto binario del file.
         """
-        return self._client.get("files/downloadFile", params={"fileId": file_id})
+        return self._client.get("v3/files/downloadFile", params={"fileId": file_id})
 
     def get_share_options(self, file_id: str) -> Dict[str, Any]:
         """
@@ -167,7 +167,7 @@ class FilesAPI:
 
         Endpoint: GET /files/getShareOptions
         """
-        return self._client.get("files/getShareOptions", params={"fileId": file_id})
+        return self._client.get("v3/files/getShareOptions", params={"fileId": file_id})
 
     def add_file(
         self,
@@ -200,7 +200,7 @@ class FilesAPI:
             data["fileName"] = file_name
         name = file_name or os.path.basename(file_path)
         with open(file_path, "rb") as f:
-            return self._client.upload("files/addFile",
+            return self._client.upload("v3/files/addFile",
                                        files={"file": (name, f)},
                                        data=data)
 
@@ -211,7 +211,7 @@ class FilesAPI:
         Endpoint: PUT /files/editFile
         """
         payload: Dict[str, Any] = {"fileId": file_id, "fileName": file_name}
-        return self._client.put("files/editFile", json=payload)
+        return self._client.put("v3/files/editFile", json=payload)
 
     def delete_file(self, file_id: str) -> Dict[str, Any]:
         """
@@ -219,7 +219,7 @@ class FilesAPI:
 
         Endpoint: DELETE /files/deleteFile
         """
-        return self._client.delete("files/deleteFile", params={"fileId": file_id})
+        return self._client.delete("v3/files/deleteFile", params={"fileId": file_id})
 
     # ------------------------------------------------------------------
     # Acknowledgement
@@ -232,7 +232,7 @@ class FilesAPI:
         Endpoint: POST /files/addAcknowledgement
         """
         payload: Dict[str, Any] = {"fileId": file_id, "userId": user_id}
-        return self._client.form_post("files/addAcknowledgement", data=payload)
+        return self._client.form_post("v3/files/addAcknowledgement", data=payload)
 
     def get_ack_details(self, file_id: str) -> Dict[str, Any]:
         """
@@ -240,7 +240,7 @@ class FilesAPI:
 
         Endpoint: GET /files/getAckDetails
         """
-        return self._client.get("files/getAckDetails", params={"fileId": file_id})
+        return self._client.get("v3/files/getAckDetails", params={"fileId": file_id})
 
     def get_ack_list_by_user(self, user_id: str) -> List[Dict[str, Any]]:
         """
@@ -248,7 +248,7 @@ class FilesAPI:
 
         Endpoint: GET /files/getAckListByUser
         """
-        data     = self._client.get("files/getAckListByUser", params={"userId": user_id})
+        data     = self._client.get("v3/files/getAckListByUser", params={"userId": user_id})
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []

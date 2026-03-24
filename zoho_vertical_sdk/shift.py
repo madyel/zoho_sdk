@@ -63,7 +63,7 @@ class ShiftAPI:
             "fromDate": _to_zoho_date(from_date),
             "toDate":   _to_zoho_date(to_date),
         }
-        return self._client.get("shift/getSchedule", params=params)
+        return self._client.get("v3/shift/getSchedule", params=params)
 
     def get_mapping(
         self,
@@ -88,7 +88,7 @@ class ShiftAPI:
         if user_id:
             params["userId"] = user_id
 
-        data     = self._client.get("shift/getMapping", params=params)
+        data     = self._client.get("v3/shift/getMapping", params=params)
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -99,7 +99,7 @@ class ShiftAPI:
 
         Endpoint: GET /shift/getSpecificMapping
         """
-        data     = self._client.get("shift/getSpecificMapping", params={"mapId": map_id})
+        data     = self._client.get("v3/shift/getSpecificMapping", params={"mapId": map_id})
         response = data.get("response", data)
         result   = response.get("result", {})
         return result if isinstance(result, dict) else {}
@@ -129,7 +129,7 @@ class ShiftAPI:
             "shiftId":  shift_id,
             "fromDate": _to_zoho_date(from_date),
         }
-        return self._client.form_post("shift/mapShift", data=payload)
+        return self._client.form_post("v3/shift/mapShift", data=payload)
 
     def delete_mapping(self, map_id: str) -> Dict[str, Any]:
         """
@@ -137,4 +137,4 @@ class ShiftAPI:
 
         Endpoint: DELETE /shift/deleteMapping
         """
-        return self._client.delete("shift/deleteMapping", params={"mapId": map_id})
+        return self._client.delete("v3/shift/deleteMapping", params={"mapId": map_id})

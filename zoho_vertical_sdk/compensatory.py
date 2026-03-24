@@ -64,7 +64,7 @@ class CompensatoryAPI:
         if status:
             params["status"] = status
 
-        data     = self._client.get("compensatory/getRequests", params=params)
+        data     = self._client.get("v3/compensatory/getRequests", params=params)
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -75,7 +75,7 @@ class CompensatoryAPI:
 
         Endpoint: GET /compensatory/getSpecificRequest
         """
-        data     = self._client.get("compensatory/getSpecificRequest",
+        data     = self._client.get("v3/compensatory/getSpecificRequest",
                                     params={"requestId": request_id})
         response = data.get("response", data)
         result   = response.get("result", {})
@@ -106,7 +106,7 @@ class CompensatoryAPI:
             "date":       _to_zoho_date(date),
             "workedDate": _to_zoho_date(worked_date),
         }
-        return self._client.form_post("compensatory/addRequest", data=payload)
+        return self._client.form_post("v3/compensatory/addRequest", data=payload)
 
     def update_request(self, request_id: str, date: str) -> Dict[str, Any]:
         """
@@ -125,7 +125,7 @@ class CompensatoryAPI:
             "requestId": request_id,
             "date":      _to_zoho_date(date),
         }
-        return self._client.put("compensatory/updateRequest", json=payload)
+        return self._client.put("v3/compensatory/updateRequest", json=payload)
 
     def cancel_request(self, request_id: str) -> Dict[str, Any]:
         """
@@ -133,7 +133,7 @@ class CompensatoryAPI:
 
         Endpoint: PATCH /compensatory/cancelRequest
         """
-        return self._client.patch("compensatory/cancelRequest",
+        return self._client.patch("v3/compensatory/cancelRequest",
                                   json={"requestId": request_id})
 
     def delete_request(self, request_id: str) -> Dict[str, Any]:
@@ -142,7 +142,7 @@ class CompensatoryAPI:
 
         Endpoint: DELETE /compensatory/deleteRequest
         """
-        return self._client.delete("compensatory/deleteRequest",
+        return self._client.delete("v3/compensatory/deleteRequest",
                                    params={"requestId": request_id})
 
     def file_upload(self, request_id: str, file_path: str) -> Dict[str, Any]:
@@ -159,6 +159,6 @@ class CompensatoryAPI:
             Percorso del file da caricare.
         """
         with open(file_path, "rb") as f:
-            return self._client.upload("compensatory/fileUpload",
+            return self._client.upload("v3/compensatory/fileUpload",
                                        files={"file": f},
                                        data={"requestId": request_id})

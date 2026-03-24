@@ -382,24 +382,30 @@ class PeopleAttendanceAPI:
 
     def get_entries(
         self,
-        employee_id: str,
-        day: str,
+        user_id: str,
+        from_date: str,
+        to_date: str,
     ) -> Any:
         """
-        Recupera le singole timbrature per un giorno.
+        Recupera le timbrature in un intervallo di date.
 
-        Endpoint: GET /people/api/v3/attendance/getAttendanceEntries
+        Endpoint: GET /people/api/v3/attendance/getEntries
 
         Parameters
         ----------
-        day : str
-            Data in formato dd/MM/yyyy.
+        user_id : str
+            Email o ID dipendente.
+        from_date : str
+            Data inizio nel formato dd/MM/yyyy.
+        to_date : str
+            Data fine nel formato dd/MM/yyyy.
         """
-        params = self._client.people_params({
-            "empId": employee_id,
-            "date":  day,
-        })
-        return self._client.get("attendance/getEntries", params=params)
+        params: Dict[str, Any] = {
+            "userId":   user_id,
+            "fromDate": _to_zoho_date(from_date),
+            "toDate":   _to_zoho_date(to_date),
+        }
+        return self._client.get("v3/attendance/getEntries", params=params)
 
     # ------------------------------------------------------------------
     # Invio presenze – endpoint interno (AttendanceAction.zp)
@@ -457,60 +463,6 @@ class PeopleAttendanceAPI:
     # Interfaccia pubblica – invio singolo
     # ------------------------------------------------------------------
 
-    def check_in(
-        self,
-        employee_id: str,
-        date_str: str,
-        check_in_time: str = "09:00",
-    ) -> Dict[str, Any]:
-        """
-        Registra la timbratura di ingresso via REST API v3.
-
-        Endpoint: POST /people/api/v3/attendance/checkIn
-
-        Parameters
-        ----------
-        employee_id : str
-            ID dipendente (empId).
-        date_str : str
-            Data in formato dd/MM/yyyy.
-        check_in_time : str
-            Orario HH:MM (es. "09:00").
-        """
-        payload = self._client.people_params({
-            "empId":        employee_id,
-            "checkInTime":  check_in_time,
-            "date":         date_str,
-        })
-        return self._client.form_post("attendance/checkIn", data=payload)
-
-    def check_out(
-        self,
-        employee_id: str,
-        date_str: str,
-        check_out_time: str = "18:00",
-    ) -> Dict[str, Any]:
-        """
-        Registra la timbratura di uscita via REST API v3.
-
-        Endpoint: POST /people/api/v3/attendance/checkOut
-
-        Parameters
-        ----------
-        employee_id : str
-            ID dipendente (empId).
-        date_str : str
-            Data in formato dd/MM/yyyy.
-        check_out_time : str
-            Orario HH:MM (es. "18:00").
-        """
-        payload = self._client.people_params({
-            "empId":         employee_id,
-            "checkOutTime":  check_out_time,
-            "date":          date_str,
-        })
-        return self._client.form_post("attendance/checkOut", data=payload)
-
     def add(
         self,
         employee_id: str,
@@ -538,14 +490,14 @@ class PeopleAttendanceAPI:
         if result is not None:
             return result
 
-        # 2. Fallback REST API
+        # 2. Fallback REST API v3
         payload = self._client.people_params({
-            "empId":    employee_id,
-            "checkIn":  check_in,
-            "checkOut": check_out,
+            "employeeId": employee_id,
+            "checkIn":    check_in,
+            "checkOut":   check_out,
             "date":     date_str,
         })
-        return self._client.form_post("attendance/addEntries", data=payload)
+        return self._client.form_post("v3/attendance/addEntries", data=payload)
 
     def get_specific_entry(self, attendance_id: str) -> Dict[str, Any]:
         """
@@ -558,7 +510,7 @@ class PeopleAttendanceAPI:
         attendance_id : str
             ID univoco della timbratura.
         """
-        return self._client.get("attendance/getSpecificEntry",
+        return self._client.get("v3/attendance/getSpecificEntry",
                                 params={"attendanceId": attendance_id})
 
     def update_entry(
@@ -591,7 +543,7 @@ class PeopleAttendanceAPI:
         }
         if reason:
             payload["reason"] = reason
-        return self._client.put("attendance/updateEntry", json=payload)
+        return self._client.put("v3/attendance/updateEntry", json=payload)
 
     def delete_specific_entry(self, attendance_id: str) -> Dict[str, Any]:
         """
@@ -604,7 +556,7 @@ class PeopleAttendanceAPI:
         attendance_id : str
             ID univoco della timbratura.
         """
-        return self._client.delete("attendance/deleteSpecificEntry",
+        return self._client.delete("v3/attendance/deleteSpecificEntry",
                                    params={"attendanceId": attendance_id})
 
     def delete_entries(
@@ -632,7 +584,7 @@ class PeopleAttendanceAPI:
             "fromDate": _to_zoho_date(from_date),
             "toDate":   _to_zoho_date(to_date),
         }
-        return self._client.delete("attendance/deleteEntries", params=params)
+        return self._client.delete("v3/attendance/deleteEntries", params=params)
 
     def punch_in(
         self,
@@ -670,7 +622,7 @@ class PeopleAttendanceAPI:
             payload["latitude"] = latitude
         if longitude:
             payload["longitude"] = longitude
-        return self._client.form_post("attendance/punchIn", data=payload)
+        return self._client.form_post("v3/attendance/punchIn", data=payload)
 
     def file_upload(
         self,
@@ -693,7 +645,7 @@ class PeopleAttendanceAPI:
         if employee_id:
             data["employeeId"] = employee_id
         with open(file_path, "rb") as f:
-            return self._client.upload("attendance/fileUpload",
+            return self._client.upload("v3/attendance/fileUpload",
                                        files={"file": f},
                                        data=data or None)
 

@@ -41,7 +41,7 @@ class OrgStructureAPI:
 
         Endpoint: GET /orgstructure/getRecord
         """
-        data     = self._client.get("orgstructure/getRecord", params={"recordId": record_id})
+        data     = self._client.get("v3/orgstructure/getRecord", params={"recordId": record_id})
         response = data.get("response", data)
         result   = response.get("result", {})
         return result if isinstance(result, dict) else {}
@@ -53,7 +53,7 @@ class OrgStructureAPI:
         Endpoint: GET /orgstructure/getRecords
         """
         params: Dict[str, Any] = {"sIndex": page, "resLen": per_page}
-        data     = self._client.get("orgstructure/getRecords", params=params)
+        data     = self._client.get("v3/orgstructure/getRecords", params=params)
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -78,13 +78,20 @@ class OrgStructureAPI:
         payload: Dict[str, Any] = {"name": name}
         if parent_entity_id:
             payload["parentEntityId"] = parent_entity_id
-        return self._client.form_post("orgstructure/addRecord", data=payload)
+        return self._client.form_post("v3/orgstructure/addRecord", data=payload)
 
-    def update_record(self, record_id: str, name: str) -> Dict[str, Any]:
+    def update_record(
+        self,
+        record_id: str,
+        name: str,
+        parent_entity_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Aggiorna un nodo dell'organigramma.
 
         Endpoint: PUT /orgstructure/updateRecord
         """
         payload: Dict[str, Any] = {"recordId": record_id, "name": name}
-        return self._client.put("orgstructure/updateRecord", json=payload)
+        if parent_entity_id:
+            payload["parentEntityId"] = parent_entity_id
+        return self._client.put("v3/orgstructure/updateRecord", json=payload)

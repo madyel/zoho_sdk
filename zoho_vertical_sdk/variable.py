@@ -54,7 +54,7 @@ class VariableAPI:
         Endpoint: GET /variable/getVariables
         """
         params: Dict[str, Any] = {"sIndex": page, "resLen": per_page}
-        data     = self._client.get("variable/getVariables", params=params)
+        data     = self._client.get("v3/variable/getVariables", params=params)
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -65,7 +65,7 @@ class VariableAPI:
 
         Endpoint: GET /variable/getVariable
         """
-        data     = self._client.get("variable/getVariable",
+        data     = self._client.get("v3/variable/getVariable",
                                     params={"variableId": variable_id})
         response = data.get("response", data)
         result   = response.get("result", {})
@@ -87,7 +87,7 @@ class VariableAPI:
             Tipo (es. "1" = testo, "2" = numero).
         """
         payload: Dict[str, Any] = {"name": name, "value": value, "type": var_type}
-        return self._client.form_post("variable/addVariable", data=payload)
+        return self._client.form_post("v3/variable/addVariable", data=payload)
 
     def update(self, variable_id: str, value: str) -> Dict[str, Any]:
         """
@@ -96,7 +96,7 @@ class VariableAPI:
         Endpoint: POST /variable/updateVariable
         """
         payload: Dict[str, Any] = {"variableId": variable_id, "value": value}
-        return self._client.form_post("variable/updateVariable", data=payload)
+        return self._client.form_post("v3/variable/updateVariable", data=payload)
 
     def delete(self, variable_id: str) -> Dict[str, Any]:
         """
@@ -104,7 +104,7 @@ class VariableAPI:
 
         Endpoint: DELETE /variable/deleteVariable
         """
-        return self._client.delete("variable/deleteVariable",
+        return self._client.delete("v3/variable/deleteVariable",
                                    params={"variableId": variable_id})
 
     def get_by_group(self, group_id: str) -> List[Dict[str, Any]]:
@@ -113,7 +113,7 @@ class VariableAPI:
 
         Endpoint: GET /variable/getVariablesByGroup
         """
-        data     = self._client.get("variable/getVariablesByGroup",
+        data     = self._client.get("v3/variable/getVariablesByGroup",
                                     params={"groupId": group_id})
         response = data.get("response", data)
         result   = response.get("result", [])
@@ -129,7 +129,7 @@ class VariableAPI:
 
         Endpoint: GET /variable/getVariableGroups
         """
-        data     = self._client.get("variable/getVariableGroups")
+        data     = self._client.get("v3/variable/getVariableGroups")
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -140,7 +140,7 @@ class VariableAPI:
 
         Endpoint: GET /variable/getVariableGroup
         """
-        data     = self._client.get("variable/getVariableGroup",
+        data     = self._client.get("v3/variable/getVariableGroup",
                                     params={"groupId": group_id})
         response = data.get("response", data)
         result   = response.get("result", {})
@@ -155,7 +155,7 @@ class VariableAPI:
         payload: Dict[str, Any] = {"groupName": group_name}
         if description:
             payload["description"] = description
-        return self._client.form_post("variable/addVariableGroup", data=payload)
+        return self._client.form_post("v3/variable/addVariableGroup", data=payload)
 
     def update_group(self, group_id: str, group_name: str) -> Dict[str, Any]:
         """
@@ -164,7 +164,7 @@ class VariableAPI:
         Endpoint: PUT /variable/updateVariableGroup
         """
         payload: Dict[str, Any] = {"groupId": group_id, "groupName": group_name}
-        return self._client.put("variable/updateVariableGroup", json=payload)
+        return self._client.put("v3/variable/updateVariableGroup", json=payload)
 
     def delete_group(self, group_id: str) -> Dict[str, Any]:
         """
@@ -172,5 +172,5 @@ class VariableAPI:
 
         Endpoint: DELETE /variable/deleteVariableGroup
         """
-        return self._client.delete("variable/deleteVariableGroup",
+        return self._client.delete("v3/variable/deleteVariableGroup",
                                    params={"groupId": group_id})

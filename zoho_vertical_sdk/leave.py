@@ -58,11 +58,6 @@ class PeopleLeaveAPI:
         Istanza del client autenticato con OAuth.
     """
 
-    # Costanti di stato per update_status()
-    STATUS_APPROVE = 1
-    STATUS_REJECT  = 2
-    STATUS_CANCEL  = 3
-
     def __init__(self, client: "ZohoVerticalClient"):
         self._client = client
 
@@ -255,83 +250,6 @@ class PeopleLeaveAPI:
 
     # ------------------------------------------------------------------
     # Saldo residuo
-    # ------------------------------------------------------------------
-
-    def get_balance(self, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
-        """
-        Recupera il saldo residuo ferie per ogni tipo.
-
-        Endpoint: GET /leave/getLeaveRecord
-
-        Parameters
-        ----------
-        user_id : str, optional
-            Email o ID dipendente. Se omesso usa l'utente corrente.
-
-        Returns
-        -------
-        list[dict]
-            Lista con per ogni tipo ferie:
-            ``{"leaveType": "...", "balance": "5", "used": "3"}``
-        """
-        params: Dict[str, Any] = {}
-        if user_id:
-            params["userId"] = user_id
-
-        data     = self._client.get("v3/leave/getLeaveRecord", params=params or None)
-        response = data.get("response", data)
-        result   = response.get("result", [])
-        return result if isinstance(result, list) else []
-
-    # ------------------------------------------------------------------
-    # Approvazione / Rifiuto
-    # ------------------------------------------------------------------
-
-    def update_status(
-        self,
-        request_id: str,
-        status: int,
-        comments: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Approva, rifiuta o cancella una richiesta di ferie.
-
-        Endpoint: POST /leave/updateLeaveRequestStatus
-
-        Parameters
-        ----------
-        request_id : str
-            ID della richiesta ferie (ottenuto da get_requests()).
-        status : int
-            1 = Approva (STATUS_APPROVE)
-            2 = Rifiuta  (STATUS_REJECT)
-            3 = Cancella (STATUS_CANCEL)
-        comments : str, optional
-            Note del manager (visibili al dipendente).
-        """
-        payload: Dict[str, Any] = {
-            "requestId": request_id,
-            "status":    status,
-        }
-        if comments:
-            payload["comments"] = comments
-
-        return self._client.form_post(
-            "v3/leave/updateLeaveRequestStatus", data=payload
-        )
-
-    def approve(self, request_id: str, comments: Optional[str] = None) -> Dict[str, Any]:
-        """Approva una richiesta di ferie (shortcut per update_status con status=1)."""
-        return self.update_status(request_id, self.STATUS_APPROVE, comments)
-
-    def reject(self, request_id: str, comments: Optional[str] = None) -> Dict[str, Any]:
-        """Rifiuta una richiesta di ferie (shortcut per update_status con status=2)."""
-        return self.update_status(request_id, self.STATUS_REJECT, comments)
-
-    def cancel(self, request_id: str, comments: Optional[str] = None) -> Dict[str, Any]:
-        """Cancella una richiesta di ferie (shortcut per update_status con status=3)."""
-        return self.update_status(request_id, self.STATUS_CANCEL, comments)
-
     # ------------------------------------------------------------------
     # Grant API (Maturazione ferie)
     # ------------------------------------------------------------------

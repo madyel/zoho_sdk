@@ -58,7 +58,7 @@ class PerformanceAPI:
         Endpoint: GET /performance/getCompetencies
         """
         params: Dict[str, Any] = {"sIndex": page, "resLen": per_page}
-        data     = self._client.get("performance/getCompetencies", params=params)
+        data     = self._client.get("v3/performance/getCompetencies", params=params)
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -72,16 +72,23 @@ class PerformanceAPI:
         payload: Dict[str, Any] = {"name": name}
         if description:
             payload["description"] = description
-        return self._client.form_post("performance/addCompetency", data=payload)
+        return self._client.form_post("v3/performance/addCompetency", data=payload)
 
-    def update_competency(self, competency_id: str, name: str) -> Dict[str, Any]:
+    def update_competency(
+        self,
+        competency_id: str,
+        name: str,
+        description: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Aggiorna una competenza.
 
         Endpoint: PUT /performance/updateCompetency
         """
         payload: Dict[str, Any] = {"competencyId": competency_id, "name": name}
-        return self._client.put("performance/updateCompetency", json=payload)
+        if description:
+            payload["description"] = description
+        return self._client.put("v3/performance/updateCompetency", json=payload)
 
     def delete_competency(self, competency_id: str) -> Dict[str, Any]:
         """
@@ -89,7 +96,7 @@ class PerformanceAPI:
 
         Endpoint: DELETE /performance/deleteCompetency
         """
-        return self._client.delete("performance/deleteCompetency",
+        return self._client.delete("v3/performance/deleteCompetency",
                                    params={"competencyId": competency_id})
 
     # ------------------------------------------------------------------
@@ -103,7 +110,7 @@ class PerformanceAPI:
         Endpoint: GET /performance/getKRAs
         """
         params: Dict[str, Any] = {"sIndex": page}
-        data     = self._client.get("performance/getKRAs", params=params)
+        data     = self._client.get("v3/performance/getKRAs", params=params)
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -117,16 +124,23 @@ class PerformanceAPI:
         payload: Dict[str, Any] = {"name": name}
         if description:
             payload["description"] = description
-        return self._client.form_post("performance/addKRA", data=payload)
+        return self._client.form_post("v3/performance/addKRA", data=payload)
 
-    def update_kra(self, kra_id: str, name: str) -> Dict[str, Any]:
+    def update_kra(
+        self,
+        kra_id: str,
+        name: str,
+        description: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         Aggiorna una KRA.
 
         Endpoint: PUT /performance/updateKRA
         """
         payload: Dict[str, Any] = {"kraId": kra_id, "name": name}
-        return self._client.put("performance/updateKRA", json=payload)
+        if description:
+            payload["description"] = description
+        return self._client.put("v3/performance/updateKRA", json=payload)
 
     def delete_kra(self, kra_id: str) -> Dict[str, Any]:
         """
@@ -134,7 +148,7 @@ class PerformanceAPI:
 
         Endpoint: DELETE /performance/deleteKRA
         """
-        return self._client.delete("performance/deleteKRA", params={"kraId": kra_id})
+        return self._client.delete("v3/performance/deleteKRA", params={"kraId": kra_id})
 
     # ------------------------------------------------------------------
     # Skill
@@ -147,7 +161,7 @@ class PerformanceAPI:
         Endpoint: GET /performance/getSkills
         """
         params: Dict[str, Any] = {"sIndex": page}
-        data     = self._client.get("performance/getSkills", params=params)
+        data     = self._client.get("v3/performance/getSkills", params=params)
         response = data.get("response", data)
         result   = response.get("result", [])
         return result if isinstance(result, list) else []
@@ -159,7 +173,7 @@ class PerformanceAPI:
         Endpoint: POST /performance/addSkill
         """
         payload: Dict[str, Any] = {"skillName": skill_name}
-        return self._client.form_post("performance/addSkill", data=payload)
+        return self._client.form_post("v3/performance/addSkill", data=payload)
 
     def update_skill(self, skill_id: str, skill_name: str) -> Dict[str, Any]:
         """
@@ -168,7 +182,7 @@ class PerformanceAPI:
         Endpoint: PUT /performance/updateSkill
         """
         payload: Dict[str, Any] = {"skillId": skill_id, "skillName": skill_name}
-        return self._client.put("performance/updateSkill", json=payload)
+        return self._client.put("v3/performance/updateSkill", json=payload)
 
     def delete_skill(self, skill_id: str) -> Dict[str, Any]:
         """
@@ -176,4 +190,4 @@ class PerformanceAPI:
 
         Endpoint: DELETE /performance/deleteSkill
         """
-        return self._client.delete("performance/deleteSkill", params={"skillId": skill_id})
+        return self._client.delete("v3/performance/deleteSkill", params={"skillId": skill_id})
