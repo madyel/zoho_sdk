@@ -483,8 +483,8 @@ class TestEmployeeHTTP:
         client.employee.list()
 
         assert captured["path"] == "v3/forms/P_EmployeeView/getRecords"
-        assert captured["params"]["page"]     == 1
-        assert captured["params"]["per_page"] == 200
+        assert captured["params"]["sIndex"]  == 1
+        assert captured["params"]["resLen"]  == 200
 
     def test_list_with_search_value(self, client, monkeypatch):
         captured = {}
