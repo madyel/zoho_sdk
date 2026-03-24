@@ -1,11 +1,12 @@
 """
-tests/test_people_api.py – Unit tests per le nuove Zoho People API
-===================================================================
+tests/test_people_api.py – Unit tests per le Zoho People API v3
+================================================================
 Copre:
-  - time_to_seconds / seconds_to_time
-  - PeopleAttendanceAPI  (add, get_monthly, absent_days_from_daylist)
+  - time_to_seconds / seconds_to_time / _to_zoho_date
+  - PeopleAttendanceAPI  (add, check_in/check_out, get_monthly, absent_days_from_daylist)
   - PeopleTimesheetAPI   (build_log_params, get, add, add_monthly, get_jobs)
-  - PeopleEmployeeAPI    (_normalize_list, find, list, get_tree)
+  - PeopleEmployeeAPI    (_normalize_list, find, list, get, get_tree, add_record, update_record)
+  - PeopleLeaveAPI       (get_requests, add_request, get_balance, update_status, shortcuts)
 
 Run with:  pytest tests/
 """
@@ -24,7 +25,9 @@ from zoho_vertical_sdk import (
     PeopleAttendanceAPI,
     PeopleTimesheetAPI,
     PeopleEmployeeAPI,
+    PeopleLeaveAPI,
 )
+from zoho_vertical_sdk.attendance import _to_zoho_date
 from zoho_vertical_sdk.exceptions import ZohoAPIError, ZohoValidationError
 
 
@@ -37,7 +40,7 @@ def client():
     auth = ZohoOAuthToken(access_token="test_token_123")
     return ZohoVerticalClient(
         auth=auth,
-        api_domain="https://people.zoho.com",
+        api_domain="https://people.zoho.eu",
         max_retries=0,
     )
 
@@ -52,7 +55,7 @@ def fake_response(status_code: int, body: dict) -> requests.Response:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Helpers orario
+# Helpers orario e data
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TestTimeHelpers:
@@ -81,6 +84,11 @@ class TestTimeHelpers:
     def test_roundtrip(self):
         for t in ("09:00", "17:30", "08:45"):
             assert seconds_to_time(time_to_seconds(t)) == t
+
+    def test_to_zoho_date(self):
+        assert _to_zoho_date("15/03/2026") == "15-Mar-2026"
+        assert _to_zoho_date("01/01/2026") == "01-Jan-2026"
+        assert _to_zoho_date("31/12/2025") == "31-Dec-2025"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -123,7 +131,8 @@ class TestAbsentDaysFromDaylist:
 
 class TestAttendanceHTTP:
 
-    def test_add_builds_correct_payload(self, client, monkeypatch):
+    def test_add_uses_rest_endpoint(self, client, monkeypatch):
+        """add() senza service_url usa attendance/addEntries."""
         captured = {}
 
         def mock_form_post(path, data, params=None):
@@ -134,17 +143,48 @@ class TestAttendanceHTTP:
         monkeypatch.setattr(client, "form_post", mock_form_post)
 
         client.attendance.add(
-            employee_record_no="P-000042",
+            employee_id="P-000042",
             date_str="15/03/2025",
             check_in="09:00",
             check_out="18:00",
         )
 
-        assert captured["path"] == "attendance"
-        assert captured["data"]["erecno"] == "P-000042"
-        assert captured["data"]["fdate"]  == "15/03/2025"
-        assert captured["data"]["ftime"]  == str(time_to_seconds("09:00"))
-        assert captured["data"]["ttime"]  == str(time_to_seconds("18:00"))
+        assert captured["path"] == "attendance/addEntries"
+        assert captured["data"]["empId"]    == "P-000042"
+        assert captured["data"]["checkIn"]  == "09:00"
+        assert captured["data"]["checkOut"] == "18:00"
+        assert captured["data"]["date"]     == "15/03/2025"
+
+    def test_check_in_calls_v3_endpoint(self, client, monkeypatch):
+        captured = {}
+
+        def mock_form_post(path, data, params=None):
+            captured["path"] = path
+            captured["data"] = data
+            return {"status": 0}
+
+        monkeypatch.setattr(client, "form_post", mock_form_post)
+        client.attendance.check_in("P-001", "20/03/2026", "09:00")
+
+        assert captured["path"] == "attendance/checkIn"
+        assert captured["data"]["empId"]       == "P-001"
+        assert captured["data"]["checkInTime"] == "09:00"
+        assert captured["data"]["date"]        == "20/03/2026"
+
+    def test_check_out_calls_v3_endpoint(self, client, monkeypatch):
+        captured = {}
+
+        def mock_form_post(path, data, params=None):
+            captured["path"] = path
+            captured["data"] = data
+            return {"status": 0}
+
+        monkeypatch.setattr(client, "form_post", mock_form_post)
+        client.attendance.check_out("P-001", "20/03/2026", "18:00")
+
+        assert captured["path"] == "attendance/checkOut"
+        assert captured["data"]["checkOutTime"] == "18:00"
+        assert captured["data"]["date"]         == "20/03/2026"
 
     def test_add_bulk_returns_one_result_per_record(self, client, monkeypatch):
         monkeypatch.setattr(
@@ -163,20 +203,21 @@ class TestAttendanceHTTP:
         assert results[0]["date"] == "03/03/2025"
         assert results[2]["date"] == "05/03/2025"
 
-    def test_get_monthly_calls_correct_endpoint(self, client, monkeypatch):
+    def test_get_monthly_calls_v3_endpoint(self, client, monkeypatch):
         captured = {}
 
         def mock_get(path, params=None):
             captured["path"]   = path
             captured["params"] = params
-            return {"dayList": {}, "userDetails": {"eNo": "P-000042"}}
+            return {}
 
         monkeypatch.setattr(client, "get", mock_get)
         client.attendance.get_monthly("P-000042", month=3, year=2025)
 
-        assert captured["path"] == "attendance"
-        assert "01/03/2025" in captured["params"]["dateRange"]
-        assert "31/03/2025" in captured["params"]["dateRange"]
+        assert captured["path"] == "attendance/getUserReport"
+        # Date in formato dd/MM/yyyy
+        assert captured["params"]["sdate"] == "01/03/2025"
+        assert captured["params"]["edate"] == "31/03/2025"
 
     def test_get_monthly_february_last_day(self, client, monkeypatch):
         captured = {}
@@ -188,7 +229,7 @@ class TestAttendanceHTTP:
         monkeypatch.setattr(client, "get", mock_get)
         client.attendance.get_monthly("P-001", month=2, year=2025)
 
-        assert "28/02/2025" in captured["params"]["dateRange"]
+        assert captured["params"]["edate"] == "28/02/2025"
 
     def test_get_monthly_leap_year(self, client, monkeypatch):
         captured = {}
@@ -200,7 +241,22 @@ class TestAttendanceHTTP:
         monkeypatch.setattr(client, "get", mock_get)
         client.attendance.get_monthly("P-001", month=2, year=2024)  # 2024 = bisestile
 
-        assert "29/02/2024" in captured["params"]["dateRange"]
+        assert captured["params"]["edate"] == "29/02/2024"
+
+    def test_get_entries_calls_v3_endpoint(self, client, monkeypatch):
+        captured = {}
+
+        def mock_get(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return {}
+
+        monkeypatch.setattr(client, "get", mock_get)
+        client.attendance.get_entries("P-001", "20/03/2026")
+
+        assert captured["path"] == "attendance/getEntries"
+        assert captured["params"]["date"]  == "20/03/2026"
+        assert captured["params"]["empId"] == "P-001"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -217,6 +273,7 @@ class TestBuildLogParams:
         assert isinstance(result["logParams"], list)
 
     def test_march_has_31_entries(self):
+        # skip_weekends=False (default) → tutti i 31 giorni
         params = PeopleTimesheetAPI.build_log_params(
             year=2025, month=3, job_id="JOB001"
         )
@@ -265,6 +322,13 @@ class TestBuildLogParams:
         )
         assert len(params["logParams"]) == 29
 
+    def test_skip_weekends_true_reduces_entries(self):
+        # Con skip_weekends=True, marzo 2025 ha 10 weekend days → 21 entries
+        params = PeopleTimesheetAPI.build_log_params(
+            year=2025, month=3, job_id="J1", skip_weekends=True
+        )
+        assert len(params["logParams"]) == 21
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PeopleTimesheetAPI – HTTP (mock)
@@ -272,7 +336,7 @@ class TestBuildLogParams:
 
 class TestTimesheetHTTP:
 
-    def test_get_calls_correct_endpoint(self, client, monkeypatch):
+    def test_get_calls_correct_endpoint_with_user_id(self, client, monkeypatch):
         captured = {}
 
         def mock_get(path, params=None):
@@ -338,7 +402,7 @@ class TestTimesheetHTTP:
         client.timesheet.add_monthly("P-001", month=3, year=2025, job_id="J1")
 
         entries = captured_params["logParams"]["logParams"]
-        # 31 giorni di marzo - 2 giorni di ferie = 29 voci
+        # 31 giorni di marzo - 2 giorni di ferie = 29 voci (skip_weekends=False)
         assert len(entries) == 29
         # day10 e day11 non devono essere presenti
         all_keys = {k for e in entries for k in e}
@@ -363,7 +427,6 @@ class TestTimesheetHTTP:
         assert jobs[0]["jobId"] == "J001"
 
     def test_get_jobs_handles_flat_data_key(self, client, monkeypatch):
-        # Alcune versioni API restituiscono {"data": [...]}
         monkeypatch.setattr(
             client, "get",
             lambda path, params=None: {"data": [{"jobId": "J1", "jobName": "Dev"}]}
@@ -397,7 +460,6 @@ class TestTimesheetHTTP:
 class TestNormalizeList:
 
     def test_normalizes_list_format(self):
-        # Formato vecchio: lista di liste [eNo, ?, ?, nome, empId, apiId, email]
         raw = [["P-001", None, None, "Mario Rossi", "EMP001", "API001", "mario@example.com"]]
         result = PeopleEmployeeAPI._normalize_list(raw)
 
@@ -409,7 +471,6 @@ class TestNormalizeList:
         assert result[0]["ApiID"]                == "API001"
 
     def test_normalizes_dict_format(self):
-        # Formato REST: lista di dizionari
         raw = [{"eNo": "P-002", "fullName": "Luca Bianchi", "emailId": "luca@example.com",
                 "empId": "EMP002", "id": "API002"}]
         result = PeopleEmployeeAPI._normalize_list(raw)
@@ -419,7 +480,6 @@ class TestNormalizeList:
         assert result[0]["Email"]                == "luca@example.com"
 
     def test_handles_html_entities_in_email(self):
-        # Il vecchio script usava html.unescape(e[6])
         raw = [["P-003", None, None, "Test User", "E1", "A1", "test&#64;example.com"]]
         result = PeopleEmployeeAPI._normalize_list(raw)
         assert result[0]["Email"] == "test@example.com"
@@ -428,7 +488,6 @@ class TestNormalizeList:
         assert PeopleEmployeeAPI._normalize_list([]) == []
 
     def test_handles_short_list_entries(self):
-        # Lista con meno di 7 elementi (graceful fallback)
         raw = [["P-004", None, None, "Solo Nome"]]
         result = PeopleEmployeeAPI._normalize_list(raw)
         assert result[0]["EmployeeRecordNumber"] == "P-004"
@@ -448,19 +507,21 @@ class TestEmployeeHTTP:
         def mock_get(path, params=None):
             captured["path"]   = path
             captured["params"] = params
-            return {"response": {"result": []}}
+            return {}
 
         monkeypatch.setattr(client, "get", mock_get)
         client.employee.list()
 
         assert captured["path"] == "forms/json/P_EmployeeView/getRecords"
+        assert captured["params"]["page"]     == 1
+        assert captured["params"]["per_page"] == 200
 
     def test_list_with_search_value(self, client, monkeypatch):
         captured = {}
 
         def mock_get(path, params=None):
             captured["params"] = params
-            return {"response": {"result": []}}
+            return {}
 
         monkeypatch.setattr(client, "get", mock_get)
         client.employee.list(search_value="Mario")
@@ -469,12 +530,12 @@ class TestEmployeeHTTP:
 
     def test_list_returns_result_array(self, client, monkeypatch):
         employees = [
-            {"eNo": "P-001", "fullName": "Mario Rossi", "emailId": "mario@ex.com", "empId": "E1", "id": "A1"},
+            {"eNo": "P-001", "fullName": "Mario Rossi",  "emailId": "mario@ex.com", "empId": "E1", "id": "A1"},
             {"eNo": "P-002", "fullName": "Luca Bianchi", "emailId": "luca@ex.com",  "empId": "E2", "id": "A2"},
         ]
         monkeypatch.setattr(
             client, "get",
-            lambda path, params=None: {"response": {"result": employees}}
+            lambda path, params=None: {"data": employees}
         )
         result = client.employee.list()
         assert len(result) == 2
@@ -484,7 +545,7 @@ class TestEmployeeHTTP:
 
         def mock_get(path, params=None):
             captured["params"] = params
-            return {"response": {"result": []}}
+            return {}
 
         monkeypatch.setattr(client, "get", mock_get)
         client.employee.search("Rossi")
@@ -494,25 +555,42 @@ class TestEmployeeHTTP:
     def test_find_returns_json_string(self, client, monkeypatch):
         monkeypatch.setattr(
             client, "get",
-            lambda path, params=None: {"response": {"result": [
+            lambda path, params=None: {"data": [
                 {"eNo": "P-001", "fullName": "Mario Rossi", "emailId": "mario@ex.com",
                  "empId": "E1", "id": "A1"}
-            ]}}
+            ]}
         )
         result = client.employee.find("Rossi")
 
-        # Deve essere una stringa JSON valida (come il vecchio findEmploy)
         parsed = json.loads(result)
         assert isinstance(parsed, list)
         assert parsed[0]["SurnameName"] == "Mario Rossi"
 
-    def test_get_tree_calls_correct_endpoint(self, client, monkeypatch):
+    def test_get_calls_v3_getrecordbyid(self, client, monkeypatch):
         captured = {}
 
         def mock_get(path, params=None):
             captured["path"]   = path
             captured["params"] = params
-            return {"tree": []}
+            return {"response": {"result": [
+                {"eNo": "P-001", "fullName": "Mario Rossi", "emailId": "mario@ex.com",
+                 "empId": "P-001", "id": "A1"}
+            ]}}
+
+        monkeypatch.setattr(client, "get", mock_get)
+        emp = client.employee.get("P-001")
+
+        assert captured["path"] == "employee/getRecordByID"
+        assert captured["params"]["empId"] == "P-001"
+        assert emp["SurnameName"] == "Mario Rossi"
+
+    def test_get_tree_calls_v3_endpoint(self, client, monkeypatch):
+        captured = {}
+
+        def mock_get(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return {"response": {"result": []}}
 
         monkeypatch.setattr(client, "get", mock_get)
         client.employee.get_tree("P-001")
@@ -520,15 +598,188 @@ class TestEmployeeHTTP:
         assert captured["path"] == "employee/getEmployeeTree"
         assert captured["params"]["erecno"] == "P-001"
 
-    def test_list_handles_flat_data_key(self, client, monkeypatch):
-        # Risposta alternativa senza wrapper "response"
+    def test_add_record_calls_post(self, client, monkeypatch):
+        captured = {}
+
+        def mock_post(path, json=None, params=None):
+            captured["path"] = path
+            captured["json"] = json
+            return {"response": {"result": {"recordId": "NEW-001"}}}
+
+        monkeypatch.setattr(client, "post", mock_post)
+        client.employee.add_record({"firstName": "Nuovo", "lastName": "Dipendente"})
+
+        assert captured["path"] == "employee/addRecord"
+        assert captured["json"]["firstName"] == "Nuovo"
+
+    def test_update_record_calls_put(self, client, monkeypatch):
+        captured = {}
+
+        def mock_put(path, json=None, params=None):
+            captured["path"] = path
+            captured["json"] = json
+            return {"response": {"status": 0}}
+
+        monkeypatch.setattr(client, "put", mock_put)
+        client.employee.update_record("P-001", {"department": "HR"})
+
+        assert captured["path"] == "employee/updateRecord"
+        assert captured["json"]["empId"]      == "P-001"
+        assert captured["json"]["department"] == "HR"
+
+    def test_list_handles_users_key(self, client, monkeypatch):
         monkeypatch.setattr(
             client, "get",
-            lambda path, params=None: {"data": [{"eNo": "P-010"}]}
+            lambda path, params=None: {"users": {"userList": [["P-010"]]}}
         )
-        # Non deve sollevare eccezioni: torna lista vuota (chiave non standard)
         result = client.employee.list()
         assert isinstance(result, list)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PeopleLeaveAPI – HTTP (mock)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestLeaveHTTP:
+
+    def test_get_requests_calls_v3_endpoint(self, client, monkeypatch):
+        captured = {}
+
+        def mock_get(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return {"response": {"result": []}}
+
+        monkeypatch.setattr(client, "get", mock_get)
+        client.leave.get_requests(user_id="mario@azienda.it", status="Pending")
+
+        assert captured["path"] == "leave/getLeaveRequests"
+        assert captured["params"]["userId"]        == "mario@azienda.it"
+        assert captured["params"]["allowedStatus"] == "Pending"
+
+    def test_get_requests_date_conversion(self, client, monkeypatch):
+        captured = {}
+
+        def mock_get(path, params=None):
+            captured["params"] = params
+            return {"response": {"result": []}}
+
+        monkeypatch.setattr(client, "get", mock_get)
+        client.leave.get_requests(from_date="01/03/2026", to_date="31/03/2026")
+
+        assert captured["params"]["fromDate"] == "01-Mar-2026"
+        assert captured["params"]["toDate"]   == "31-Mar-2026"
+
+    def test_add_request_calls_v3_endpoint(self, client, monkeypatch):
+        captured = {}
+
+        def mock_form_post(path, data, params=None):
+            captured["path"] = path
+            captured["data"] = data
+            return {"response": {"result": {"requestId": "REQ-001"}}}
+
+        monkeypatch.setattr(client, "form_post", mock_form_post)
+
+        client.leave.add_request(
+            user_id="mario@azienda.it",
+            leave_type="Annual Leave",
+            from_date="24/03/2026",
+            to_date="27/03/2026",
+            reason="Vacanza",
+        )
+
+        assert captured["path"] == "leave/addLeaveRequest"
+        assert captured["data"]["userId"]    == "mario@azienda.it"
+        assert captured["data"]["leavetype"] == "Annual Leave"
+        assert captured["data"]["fromDate"]  == "24-Mar-2026"
+        assert captured["data"]["toDate"]    == "27-Mar-2026"
+        assert captured["data"]["reason"]    == "Vacanza"
+
+    def test_get_balance_calls_v3_endpoint(self, client, monkeypatch):
+        captured = {}
+
+        def mock_get(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return {"response": {"result": [
+                {"leaveType": "Annual Leave", "balance": "10", "used": "5"},
+            ]}}
+
+        monkeypatch.setattr(client, "get", mock_get)
+        balance = client.leave.get_balance("mario@azienda.it")
+
+        assert captured["path"] == "leave/getLeaveRecord"
+        assert captured["params"]["userId"] == "mario@azienda.it"
+        assert len(balance) == 1
+        assert balance[0]["leaveType"] == "Annual Leave"
+
+    def test_update_status_approve(self, client, monkeypatch):
+        captured = {}
+
+        def mock_form_post(path, data, params=None):
+            captured["path"] = path
+            captured["data"] = data
+            return {"response": {"status": 0}}
+
+        monkeypatch.setattr(client, "form_post", mock_form_post)
+        client.leave.update_status("REQ-789", status=1, comments="Approvato")
+
+        assert captured["path"] == "leave/updateLeaveRequestStatus"
+        assert captured["data"]["requestId"] == "REQ-789"
+        assert captured["data"]["status"]    == 1
+        assert captured["data"]["comments"]  == "Approvato"
+
+    def test_approve_shortcut(self, client, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(
+            client, "form_post",
+            lambda path, data, params=None: captured.update({"path": path, "data": data}) or {}
+        )
+        client.leave.approve("REQ-001")
+        assert captured["data"]["status"] == PeopleLeaveAPI.STATUS_APPROVE
+
+    def test_reject_shortcut(self, client, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(
+            client, "form_post",
+            lambda path, data, params=None: captured.update({"path": path, "data": data}) or {}
+        )
+        client.leave.reject("REQ-001", "Non approvato")
+        assert captured["data"]["status"] == PeopleLeaveAPI.STATUS_REJECT
+
+    def test_cancel_shortcut(self, client, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(
+            client, "form_post",
+            lambda path, data, params=None: captured.update({"path": path, "data": data}) or {}
+        )
+        client.leave.cancel("REQ-001")
+        assert captured["data"]["status"] == PeopleLeaveAPI.STATUS_CANCEL
+
+    def test_get_requests_returns_list(self, client, monkeypatch):
+        monkeypatch.setattr(
+            client, "get",
+            lambda path, params=None: {"response": {"result": [
+                {"requestId": "R1", "status": "Pending"},
+                {"requestId": "R2", "status": "Approved"},
+            ]}}
+        )
+        result = client.leave.get_requests()
+        assert len(result) == 2
+        assert result[0]["requestId"] == "R1"
+
+    def test_get_balance_without_user(self, client, monkeypatch):
+        captured = {}
+
+        def mock_get(path, params=None):
+            captured["params"] = params
+            return {"response": {"result": []}}
+
+        monkeypatch.setattr(client, "get", mock_get)
+        client.leave.get_balance()
+
+        # Senza userId non deve essere incluso nel params
+        assert captured["params"] is None or "userId" not in (captured["params"] or {})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -546,8 +797,192 @@ class TestClientProperties:
     def test_employee_property(self, client):
         assert isinstance(client.employee, PeopleEmployeeAPI)
 
+    def test_leave_property(self, client):
+        assert isinstance(client.leave, PeopleLeaveAPI)
+
     def test_properties_are_cached(self, client):
-        # Accedere due volte deve restituire la stessa istanza
         assert client.attendance is client.attendance
         assert client.timesheet  is client.timesheet
         assert client.employee   is client.employee
+        assert client.leave      is client.leave
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PeopleAttendanceAPI – new REST endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestAttendanceNewEndpoints:
+
+    def test_get_specific_entry(self, client, monkeypatch):
+        captured = {}
+
+        def mock_get(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return {"response": {"result": {"attendanceId": "ATT-001"}}}
+
+        monkeypatch.setattr(client, "get", mock_get)
+        client.attendance.get_specific_entry("ATT-001")
+
+        assert captured["path"]              == "attendance/getSpecificEntry"
+        assert captured["params"]["attendanceId"] == "ATT-001"
+
+    def test_update_entry(self, client, monkeypatch):
+        captured = {}
+
+        def mock_put(path, json=None, params=None):
+            captured["path"] = path
+            captured["json"] = json
+            return {"response": {"result": {}}}
+
+        monkeypatch.setattr(client, "put", mock_put)
+        client.attendance.update_entry("ATT-001", "09:00", "18:00", reason="correction")
+
+        assert captured["path"]              == "attendance/updateEntry"
+        assert captured["json"]["attendanceId"] == "ATT-001"
+        assert captured["json"]["checkIn"]      == "09:00"
+        assert captured["json"]["checkOut"]     == "18:00"
+        assert captured["json"]["reason"]       == "correction"
+
+    def test_update_entry_no_reason(self, client, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(client, "put",
+                            lambda path, json=None, params=None: captured.update({"json": json}) or {})
+        client.attendance.update_entry("ATT-002", "08:30", "17:30")
+        assert "reason" not in captured["json"]
+
+    def test_delete_specific_entry(self, client, monkeypatch):
+        captured = {}
+
+        def mock_delete(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return {"response": {"result": {}}}
+
+        monkeypatch.setattr(client, "delete", mock_delete)
+        client.attendance.delete_specific_entry("ATT-001")
+
+        assert captured["path"]                  == "attendance/deleteSpecificEntry"
+        assert captured["params"]["attendanceId"] == "ATT-001"
+
+    def test_delete_entries(self, client, monkeypatch):
+        captured = {}
+
+        def mock_delete(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return {"response": {"result": {}}}
+
+        monkeypatch.setattr(client, "delete", mock_delete)
+        client.attendance.delete_entries("user@example.com", "01/03/2026", "31/03/2026")
+
+        assert captured["path"]              == "attendance/deleteEntries"
+        assert captured["params"]["userId"]  == "user@example.com"
+
+    def test_punch_in(self, client, monkeypatch):
+        captured = {}
+
+        def mock_form_post(path, data, params=None):
+            captured["path"] = path
+            captured["data"] = data
+            return {"status": 0}
+
+        monkeypatch.setattr(client, "form_post", mock_form_post)
+        client.attendance.punch_in("P-001", "09:00", location="HQ",
+                                   latitude="45.0", longitude="9.0")
+
+        assert captured["path"]                  == "attendance/punchIn"
+        assert captured["data"]["employeeId"]    == "P-001"
+        assert captured["data"]["checkInTime"]   == "09:00"
+        assert captured["data"]["location"]      == "HQ"
+        assert captured["data"]["latitude"]      == "45.0"
+        assert captured["data"]["longitude"]     == "9.0"
+
+    def test_punch_in_minimal(self, client, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(client, "form_post",
+                            lambda path, data, params=None: captured.update({"data": data}) or {})
+        client.attendance.punch_in("P-002", "08:30")
+        assert "location" not in captured["data"]
+        assert "latitude" not in captured["data"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CompensatoryAPI – file_upload
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestCompensatoryFileUpload:
+
+    def test_file_upload_calls_correct_endpoint(self, client, monkeypatch, tmp_path):
+        captured = {}
+        dummy = tmp_path / "doc.pdf"
+        dummy.write_bytes(b"PDF")
+
+        def mock_upload(path, files, data=None):
+            captured["path"] = path
+            captured["data"] = data
+            return {"status": 0}
+
+        monkeypatch.setattr(client, "upload", mock_upload)
+        from zoho_vertical_sdk.compensatory import CompensatoryAPI
+        api = CompensatoryAPI(client)
+        api.file_upload("REQ-001", str(dummy))
+
+        assert captured["path"]              == "compensatory/fileUpload"
+        assert captured["data"]["requestId"] == "REQ-001"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FilesAPI – add_file / download_file
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestFilesAPINew:
+
+    def test_add_file_calls_correct_endpoint(self, client, monkeypatch, tmp_path):
+        captured = {}
+        dummy = tmp_path / "report.pdf"
+        dummy.write_bytes(b"PDF content")
+
+        def mock_upload(path, files, data=None):
+            captured["path"] = path
+            captured["data"] = data
+            return {"status": 0}
+
+        monkeypatch.setattr(client, "upload", mock_upload)
+        from zoho_vertical_sdk.files_api import FilesAPI
+        api = FilesAPI(client)
+        api.add_file(str(dummy), folder_id="FOLD-1", employee_id="EMP-1")
+
+        assert captured["path"]                == "files/addFile"
+        assert captured["data"]["folderId"]    == "FOLD-1"
+        assert captured["data"]["employeeId"]  == "EMP-1"
+
+    def test_add_file_without_employee(self, client, monkeypatch, tmp_path):
+        captured = {}
+        dummy = tmp_path / "file.txt"
+        dummy.write_bytes(b"text")
+
+        monkeypatch.setattr(client, "upload",
+                            lambda path, files, data=None: captured.update({"data": data}) or {})
+        from zoho_vertical_sdk.files_api import FilesAPI
+        api = FilesAPI(client)
+        api.add_file(str(dummy), folder_id="FOLD-2")
+
+        assert "employeeId" not in (captured["data"] or {})
+
+    def test_download_file_calls_correct_endpoint(self, client, monkeypatch):
+        captured = {}
+
+        def mock_get(path, params=None):
+            captured["path"]   = path
+            captured["params"] = params
+            return b"binary content"
+
+        monkeypatch.setattr(client, "get", mock_get)
+        from zoho_vertical_sdk.files_api import FilesAPI
+        api = FilesAPI(client)
+        result = api.download_file("FILE-001")
+
+        assert captured["path"]               == "files/downloadFile"
+        assert captured["params"]["fileId"]   == "FILE-001"
+        assert result == b"binary content"
