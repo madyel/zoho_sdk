@@ -791,16 +791,16 @@ def example_15_leave():
     try:
         reqs = client.leave.get_requests(
             employee_zoho_id=None if EMPLOYEE_ID == "self" else EMPLOYEE_ID,
-            approval_status="Pending",
+            approval_status="PENDING",
             from_date=first_of_month,
             to_date=today_str,
         )
         ok(f"Richieste Pending: {len(reqs)}")
         for r in reqs[:3]:
-            rid   = r.get("requestId", r.get("leave_id", "?"))
-            lt    = r.get("leaveType", r.get("leave_type_name", "?"))
-            fd    = r.get("fromDate",  r.get("from_date", "?"))
-            td    = r.get("toDate",    r.get("to_date",   "?"))
+            rid   = r.get("leave_id", "?")
+            lt    = (r.get("leave_type") or {}).get("name", "?")
+            fd    = r.get("from_date", "?")
+            td    = r.get("to_date",   "?")
             print(f"    • [{rid}]  {str(lt):20}  {fd} → {td}")
         if len(reqs) > 3:
             info(f"  … e altre {len(reqs) - 3}")

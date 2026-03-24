@@ -49,7 +49,7 @@ class PeopleLeaveAPI:
         employee_zoho_id: Optional[str] = None,
         approval_status: Optional[str] = None,
         limit: int = 200,
-        offset: int = 0,
+        offset: int = 1,
     ) -> List[Dict[str, Any]]:
         """
         Recupera le richieste di ferie.
@@ -63,7 +63,7 @@ class PeopleLeaveAPI:
         employee_zoho_id : str, optional
             ID Zoho del dipendente. Se omesso restituisce tutte.
         approval_status : str, optional
-            Filtra per stato: "Approved", "Pending", "Rejected", "Cancelled".
+            Filtra per stato: "APPROVED", "PENDING", "REJECTED", "CANCELLED", "CANCEL_PENDING", "ALL".
         limit : int
             Numero massimo di record da restituire.
         offset : int
