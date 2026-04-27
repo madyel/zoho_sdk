@@ -1,19 +1,16 @@
 # zoho-people-sdk
 
-[![CI](https://github.com/madyel83/zoho-people-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/madyel83/zoho-people-sdk/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://pypi.org/project/zoho-people-sdk/)
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](CHANGELOG.md)
+[![CI](https://github.com/madyel83/zoho-people-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/madyel/zoho_sdk/actions)
 [![Docs](https://readthedocs.org/projects/zoho-sdk-people/badge/?version=latest)](https://zoho-sdk-people.readthedocs.io/en/latest/)
-<!-- Uncomment after publishing to PyPI:
 [![PyPI](https://img.shields.io/pypi/v/zoho-people-sdk)](https://pypi.org/project/zoho-people-sdk/)
--->
+[![Python](https://img.shields.io/pypi/pyversions/zoho-people-sdk)](https://pypi.org/project/zoho-people-sdk/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Python SDK for the **Zoho People REST API**.
 
 Covers attendance, timesheet, leave management, and employee records — with automatic OAuth token refresh, typed exceptions, and full type hints.
 
-📚 **Full documentation:** [zoho-people-sdk.readthedocs.io](https://zoho-sdk-people.readthedocs.io)
+📚 **Full documentation:** [zoho-sdk-people.readthedocs.io](https://zoho-sdk-people.readthedocs.io/en/latest/)
 
 ---
 
@@ -141,7 +138,7 @@ except ZohoPeopleError as e:
 
 ## Documentation
 
-Full documentation is available at **[zoho-people-sdk.readthedocs.io](https://zoho-sdk-people.readthedocs.io)** in English and Italian:
+Full documentation at **[zoho-sdk-people.readthedocs.io](https://zoho-sdk-people.readthedocs.io/en/latest/)** in English and Italian:
 
 - [Getting Started](https://zoho-sdk-people.readthedocs.io/en/latest/getting-started/installation.html)
 - [User Guide](https://zoho-sdk-people.readthedocs.io/en/latest/guide/attendance.html)
