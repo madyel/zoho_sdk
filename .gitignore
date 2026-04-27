@@ -19,3 +19,4 @@ Thumbs.db
 src/*.egg-info/
 *.egg-info/
 .github/
+docs/_build/
