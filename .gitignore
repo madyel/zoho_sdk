@@ -10,9 +10,12 @@ dist/
 build/
 .venv/
 venv/
+.env
+people_config.json
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 src/*.egg-info/
+*.egg-info/
 .github/
