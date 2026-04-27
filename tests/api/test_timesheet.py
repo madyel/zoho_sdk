@@ -1,339 +1,91 @@
 """
-tests/test_sdk.py – Unit tests for the Zoho Vertical Studio SDK.
+tests/api/test_timesheet.py — Unit tests for TimesheetAPI.
 Run with: pytest tests/
 """
+from __future__ import annotations
 
-import json
 import pytest
-
-try:
-    import responses as resp_mock
-    HAS_RESPONSES = True
-except ImportError:
-    HAS_RESPONSES = False
-
-from zoho_vertical_sdk import ZohoOAuthToken, ZohoVerticalClient
-from zoho_vertical_sdk.exceptions import (
-    ZohoAPIError,
-    ZohoAuthError,
-    ZohoNotFoundError,
-    ZohoRateLimitError,
-    ZohoValidationError,
-)
-from zoho_vertical_sdk.query import QueryAPI
+from unittest.mock import MagicMock, patch
 
 
-# ---------------------------------------------------------------------------
-# Auth tests
-# ---------------------------------------------------------------------------
+@pytest.fixture
+def mock_client():
+    """Return a ZohoPeopleClient with a mocked auth and HTTP layer."""
+    from zoho_people import ZohoPeopleAuth, ZohoPeopleClient
 
-class TestZohoOAuthToken:
-    def test_static_token(self):
-        auth = ZohoOAuthToken(access_token="abc123")
-        assert auth.get_access_token() == "abc123"
-        assert auth.auth_header() == {"Authorization": "Zoho-oauthtoken abc123"}
+    auth = ZohoPeopleAuth(
+        client_id="test_id",
+        client_secret="test_secret",
+        refresh_token="test_refresh",
+        data_centre="US",
+    )
+    auth.access_token = "test_token"
+    auth._token_expiry = float("inf")
 
-    def test_no_token_raises(self):
-        auth = ZohoOAuthToken()
-        with pytest.raises(ZohoAuthError):
-            auth.get_access_token()
-
-    def test_from_env(self, monkeypatch):
-        monkeypatch.setenv("ZOHO_ACCESS_TOKEN", "env_token")
-        auth = ZohoOAuthToken.from_env()
-        assert auth.access_token == "env_token"
+    client = ZohoPeopleClient(auth=auth)
+    return client
 
 
-# ---------------------------------------------------------------------------
-# URL builder test
-# ---------------------------------------------------------------------------
+class TestTimesheetAddTimelog:
+    def test_add_timelog_calls_post(self, mock_client):
+        with patch.object(mock_client, "post", return_value={"result": "ok"}) as mock_post:
+            mock_client.timesheet.add_timelog(
+                user="mario@company.com",
+                work_date="2026-04-25",
+                hours="08:00",
+                job_name="My Project",
+            )
+            mock_post.assert_called_once()
+            call_kwargs = mock_post.call_args
+            assert "timetracker/addtimelog" in str(call_kwargs)
 
-class TestClientURLBuilder:
-    def setup_method(self):
-        auth = ZohoOAuthToken(access_token="tok")
-        self.client = ZohoVerticalClient(auth=auth, api_domain="https://zohoverticalapis.com")
-
-    def test_build_url(self):
-        url = self.client.build_url("Leads")
-        assert url == "https://zohoverticalapis.com/crm/v6/Leads"
-
-    def test_build_url_with_leading_slash(self):
-        url = self.client.build_url("/settings/modules")
-        assert url == "https://zohoverticalapis.com/crm/v6/settings/modules"
-
-
-# ---------------------------------------------------------------------------
-# Query builder tests (no HTTP)
-# ---------------------------------------------------------------------------
-
-class TestQueryBuilder:
-    def setup_method(self):
-        auth = ZohoOAuthToken(access_token="tok")
-        self.client = ZohoVerticalClient(auth=auth, api_domain="https://example.com")
-
-    def test_build_simple(self):
-        q = (
-            self.client.query
-            .select("Last_Name", "Email")
-            .from_module("Leads")
-            .limit(0, 10)
-            .build()
-        )
-        assert "SELECT Last_Name, Email FROM Leads" in q
-        assert "LIMIT 0, 10" in q
-
-    def test_build_with_where(self):
-        q = (
-            self.client.query
-            .select("Last_Name")
-            .from_module("Leads")
-            .where("Last_Name is not null")
-            .build()
-        )
-        assert "WHERE (Last_Name is not null)" in q
-
-    def test_build_with_order(self):
-        q = (
-            self.client.query
-            .select("id")
-            .from_module("Contacts")
-            .order_by("Created_Time", "DESC")
-            .build()
-        )
-        assert "ORDER BY Created_Time DESC" in q
-
-    def test_build_missing_fields_raises(self):
-        with pytest.raises(ValueError, match="No fields"):
-            self.client.query.from_module("Leads").build()
-
-    def test_build_missing_module_raises(self):
-        with pytest.raises(ValueError, match="No module"):
-            self.client.query.select("id").build()
-
-    def test_limit_cap(self):
-        q = (
-            self.client.query
-            .select("id")
-            .from_module("Leads")
-            .limit(0, 9999)
-            .build()
-        )
-        assert "LIMIT 0, 2000" in q
+    def test_add_timelog_requires_user(self, mock_client):
+        with pytest.raises(TypeError):
+            mock_client.timesheet.add_timelog(
+                work_date="2026-04-25",
+                hours="08:00",
+            )
 
 
-# ---------------------------------------------------------------------------
-# Response handling tests (no HTTP mock needed)
-# ---------------------------------------------------------------------------
+class TestTimesheetCreate:
+    def test_create_returns_dict(self, mock_client):
+        expected = {"timesheetId": ["12345"]}
+        with patch.object(mock_client, "post", return_value=expected):
+            result = mock_client.timesheet.create(
+                user="mario@company.com",
+                name="April 2026",
+                from_date="01-04-2026",
+                to_date="30-04-2026",
+            )
+        assert result == expected
 
-class TestResponseHandling:
-    def setup_method(self):
-        auth = ZohoOAuthToken(access_token="tok")
-        self.client = ZohoVerticalClient(auth=auth, api_domain="https://example.com")
-
-    def _fake_response(self, status_code, body):
-        """Create a minimal fake requests.Response."""
-        import requests
-        r = requests.Response()
-        r.status_code = status_code
-        r._content = json.dumps(body).encode()
-        r.headers["Content-Type"] = "application/json"
-        return r
-
-    def test_200_returns_data(self):
-        r = self._fake_response(200, {"modules": [{"api_name": "Leads"}]})
-        data = self.client._handle_response(r)
-        assert data["modules"][0]["api_name"] == "Leads"
-
-    def test_401_raises_auth_error(self):
-        r = self._fake_response(401, {"code": "OAUTH_SCOPE_MISMATCH", "message": "no scope"})
-        with pytest.raises(ZohoAuthError) as exc_info:
-            self.client._handle_response(r)
-        assert exc_info.value.status_code == 401
-
-    def test_404_raises_not_found(self):
-        r = self._fake_response(404, {"code": "RECORD_NOT_FOUND", "message": "not found"})
-        with pytest.raises(ZohoNotFoundError):
-            self.client._handle_response(r)
-
-    def test_429_raises_rate_limit(self):
-        r = self._fake_response(429, {"code": "RATE_LIMIT", "message": "limit"})
-        with pytest.raises(ZohoRateLimitError):
-            self.client._handle_response(r)
-
-    def test_400_raises_validation(self):
-        r = self._fake_response(400, {"code": "INVALID_DATA", "message": "bad"})
-        with pytest.raises(ZohoValidationError):
-            self.client._handle_response(r)
-
-    def test_204_returns_empty_dict(self):
-        import requests
-        r = requests.Response()
-        r.status_code = 204
-        r._content = b""
-        data = self.client._handle_response(r)
-        assert data == {}
+    def test_create_list_response_normalised(self, mock_client):
+        """If the API returns a list, create() should return a dict."""
+        with patch.object(mock_client, "post", return_value=[{"timesheetId": ["99"]}]):
+            result = mock_client.timesheet.create(
+                user="mario@company.com",
+                name="April 2026",
+                from_date="01-04-2026",
+                to_date="30-04-2026",
+            )
+        assert isinstance(result, dict)
 
 
-# ---------------------------------------------------------------------------
-# Composite API tests (no HTTP)
-# ---------------------------------------------------------------------------
+class TestTimesheetList:
+    def test_list_returns_list(self, mock_client):
+        with patch.object(mock_client, "get", return_value={"result": [{"id": "1"}]}):
+            result = mock_client.timesheet.list(
+                user="mario@company.com",
+                from_date="01-Apr-2026",
+                to_date="30-Apr-2026",
+            )
+        assert isinstance(result, list)
 
-class TestCompositeAPI:
-    def setup_method(self):
-        auth = ZohoOAuthToken(access_token="tok")
-        self.client = ZohoVerticalClient(auth=auth, api_domain="https://example.com")
-
-    def test_build_parallel(self):
-        payload = (
-            self.client.composite
-            .new()
-            .parallel(True)
-            .add_get("/crm/v6/Leads")
-            .add_get("/crm/v6/Contacts")
-            .build()
-        )
-        assert payload["parallel_execution"] is True
-        assert payload["rollback_on_fail"] is False
-        assert len(payload["__composite_requests"]) == 2
-        assert payload["__composite_requests"][0]["method"] == "GET"
-        assert payload["__composite_requests"][0]["sub_request_id"] == "1"
-        assert payload["__composite_requests"][1]["sub_request_id"] == "2"
-
-    def test_build_rollback(self):
-        payload = (
-            self.client.composite
-            .new()
-            .rollback_on_fail(True)
-            .add_post("/crm/v6/Leads", body={"data": [{"Last_Name": "Test"}]})
-            .add_post("/crm/v6/Contacts", body={"data": [{"Last_Name": "Test2"}]})
-            .build()
-        )
-        assert payload["rollback_on_fail"] is True
-        assert payload["parallel_execution"] is False
-        assert len(payload["__composite_requests"]) == 2
-        assert payload["__composite_requests"][0]["body"]["data"][0]["Last_Name"] == "Test"
-
-    def test_max_sub_requests(self):
-        builder = self.client.composite.new()
-        for i in range(5):
-            builder.add_get(f"/crm/v6/Module{i}")
-        with pytest.raises(ValueError, match="massimo"):
-            builder.add_get("/crm/v6/SixthModule")
-
-    def test_shortcut_create_record(self):
-        payload = (
-            self.client.composite
-            .new()
-            .create_record("Leads", {"Last_Name": "Rossi"})
-            .build()
-        )
-        req = payload["__composite_requests"][0]
-        assert req["method"] == "POST"
-        assert "Leads" in req["uri"]
-        assert req["body"]["data"][0]["Last_Name"] == "Rossi"
-
-    def test_shortcut_update_record(self):
-        payload = (
-            self.client.composite
-            .new()
-            .update_record("Leads", "123", {"Email": "new@ex.com"})
-            .build()
-        )
-        req = payload["__composite_requests"][0]
-        assert req["method"] == "PUT"
-        assert req["body"]["data"][0]["id"] == "123"
-        assert req["body"]["data"][0]["Email"] == "new@ex.com"
-
-    def test_shortcut_delete_record(self):
-        payload = (
-            self.client.composite
-            .new()
-            .delete_record("Leads", ["111", "222"])
-            .build()
-        )
-        req = payload["__composite_requests"][0]
-        assert req["method"] == "DELETE"
-        # La virgola può essere URL-encoded (%2C) o in chiaro
-        assert "111" in req["uri"] and "222" in req["uri"]
-
-    def test_auto_increment_ids(self):
-        payload = (
-            self.client.composite
-            .new()
-            .add_get("/crm/v6/Leads")
-            .add_get("/crm/v6/Contacts")
-            .add_get("/crm/v6/Accounts")
-            .build()
-        )
-        ids = [r["sub_request_id"] for r in payload["__composite_requests"]]
-        assert ids == ["1", "2", "3"]
-
-    def test_custom_sub_request_id(self):
-        payload = (
-            self.client.composite
-            .new()
-            .add_get("/crm/v6/Leads", sub_request_id="alpha")
-            .add_get("/crm/v6/Contacts", sub_request_id="beta")
-            .build()
-        )
-        ids = [r["sub_request_id"] for r in payload["__composite_requests"]]
-        assert ids == ["alpha", "beta"]
-
-    def test_parse_responses(self):
-        mock_result = {
-            "__composite_responses": [
-                {"sub_request_id": "1", "status": 200, "body": {"data": []}},
-                {"sub_request_id": "2", "status": 201, "body": {"data": [{"id": "999"}]}},
-            ]
-        }
-        responses = self.client.composite.parse_responses(mock_result)
-        assert len(responses) == 2
-        assert responses[1]["status"] == 201
-
-    def test_all_succeeded_true(self):
-        mock_result = {
-            "__composite_responses": [
-                {"sub_request_id": "1", "status": 200, "body": {}},
-                {"sub_request_id": "2", "status": 201, "body": {}},
-            ]
-        }
-        assert self.client.composite.all_succeeded(mock_result) is True
-
-    def test_all_succeeded_false(self):
-        mock_result = {
-            "__composite_responses": [
-                {"sub_request_id": "1", "status": 200, "body": {}},
-                {"sub_request_id": "2", "status": 400, "body": {}},
-            ]
-        }
-        assert self.client.composite.all_succeeded(mock_result) is False
-
-    def test_get_response_by_id(self):
-        mock_result = {
-            "__composite_responses": [
-                {"sub_request_id": "1", "status": 200, "body": {"x": 1}},
-                {"sub_request_id": "2", "status": 201, "body": {"x": 2}},
-            ]
-        }
-        r = self.client.composite.get_response(mock_result, "2")
-        assert r is not None
-        assert r["body"]["x"] == 2
-
-    def test_get_response_not_found(self):
-        mock_result = {"__composite_responses": []}
-        assert self.client.composite.get_response(mock_result, "99") is None
-
-    def test_params_appended_to_uri(self):
-        payload = (
-            self.client.composite
-            .new()
-            .add_get("/crm/v6/Leads", params={"per_page": "5", "fields": "Last_Name"})
-            .build()
-        )
-        uri = payload["__composite_requests"][0]["uri"]
-        assert "per_page=5" in uri
-        assert "fields=Last_Name" in uri
-
-    def test_empty_build_raises(self):
-        with pytest.raises(ValueError):
-            self.client.composite.new().build()
+    def test_list_empty_on_no_data(self, mock_client):
+        with patch.object(mock_client, "get", return_value={}):
+            result = mock_client.timesheet.list(
+                user="mario@company.com",
+                from_date="01-Apr-2026",
+                to_date="30-Apr-2026",
+            )
+        assert result == []
