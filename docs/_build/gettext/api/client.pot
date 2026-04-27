@@ -1,0 +1,107 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, Giuseppe Giudice
+# This file is distributed under the same license as the zoho-people-sdk package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: zoho-people-sdk 0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-04-27 06:49+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../../api/client.rst:2
+msgid "Client"
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client:1
+msgid "Core HTTP client for Zoho People SDK."
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client:4
+msgid "Response format"
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client:5
+msgid "Zoho People wraps most responses as::"
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client:9
+msgid "where ``status=0`` means success and ``status=1`` means an application-level error.  Some older endpoints return a plain JSON list or dict."
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client:13
+msgid "URL routing"
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client:14
+msgid "``v2/...`` paths  →  ``{base}/api/v2/...``         (no ``/people/`` prefix)"
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client:15
+msgid "All other paths   →  ``{base}/people/api/{path}``"
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient:1
+msgid "Entry point for the Zoho People SDK."
+msgstr ""
+
+#: ../../api/client.rst:0
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.build_url:0
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.get:0
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.post:0
+msgid "Parameters"
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient:3
+msgid "Authentication object."
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient:5
+msgid "HTTP request timeout in seconds (default 30)."
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient:7
+msgid "Number of retries on rate-limit or transient errors (default 3)."
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient:9
+msgid "Base wait time (seconds) between retries, doubled on each attempt."
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient:13
+msgid "Example"
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.build_url:1
+msgid "Build the full request URL from a relative path."
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.build_url:3
+msgid "Paths starting with ``v2/`` use ``{base}/api/v2/...``. All other paths use ``{base}/people/api/...``."
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.build_url:0
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.close:0
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.get:0
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.post:0
+msgid "Return type"
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.get:1
+msgid "HTTP GET with automatic auth and retry."
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.post:1
+msgid "HTTP POST with automatic auth and retry."
+msgstr ""
+
+#: ../../../src/zoho_people/client.py:docstring of zoho_people.client.ZohoPeopleClient.close:1
+msgid "Close the underlying HTTP session."
+msgstr ""

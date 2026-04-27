@@ -1,0 +1,214 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, Giuseppe Giudice
+# This file is distributed under the same license as the zoho-people-sdk package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: zoho-people-sdk 0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-04-27 06:49+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../../api/attendance.rst:2
+msgid "Attendance"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance:1
+msgid "Attendance API – Zoho People check-in/out and attendance reports."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance:4
+msgid "Endpoints covered"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance:5
+msgid "``POST attendance``                        – single check-in / check-out"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance:6
+msgid "``POST attendance/bulkImport``             – bulk attendance import"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance:7
+msgid "``GET  attendance/getUserReport``          – attendance report for a period"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance:8
+msgid "``GET  attendance/getAttendanceEntries``   – daily clock entries"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance:9
+msgid "``GET  attendance/getShiftConfiguration``  – shift configuration"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance:11
+msgid "Scope required: ``ZOHOPEOPLE.attendance.ALL``"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance:14
+msgid "The check-in / check-out write endpoints require the authenticated user to have the *\"Check-in/Check-out\"* or *\"Regularize Attendance\"* permission enabled in Zoho People → Settings → Attendance → Permissions. Read endpoints (``getUserReport``) work for all roles."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.CHECKIN_DATE_FORMAT:1
+msgid "Date-time format expected by the check-in / check-out API."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI:1
+msgid "Read and write attendance records in Zoho People."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI:3
+msgid "Obtain an instance via :attr:`ZohoPeopleClient.attendance`."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI:6
+msgid "Examples"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI:7
+msgid "Record a single check-in and check-out::"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI:15
+msgid "Fetch the monthly attendance report::"
+msgstr ""
+
+#: ../../api/attendance.rst:0
+msgid "Parameters"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.checkin:1
+msgid "Record a check-in (and optionally a check-out) for an employee."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.checkin:3
+msgid "Check-in datetime string, e.g. ``\"25/04/2026 09:00:00\"``."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.checkin:4
+msgid "Check-out datetime string.  Omit to record only the entry."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.checkin:5
+msgid "Employee ID (e.g. ``\"EMP001\"`` or ``\"IMP085\"``)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.checkin:6
+msgid "Employee e-mail address."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.checkin:7
+msgid "Biometric device mapper ID."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.checkin:8
+msgid "Datetime format (default ``\"dd/MM/yyyy HH:mm:ss\"``)."
+msgstr ""
+
+#: ../../api/attendance.rst:0
+msgid "Returns"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.checkin:10
+msgid "Zoho API response."
+msgstr ""
+
+#: ../../api/attendance.rst:0
+msgid "Return type"
+msgstr ""
+
+#: ../../api/attendance.rst:0
+msgid "Raises"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.checkin:13
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.checkout:3
+msgid "If none of *emp_id*, *email_id*, *map_id* is provided."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.checkout:1
+msgid "Record a standalone check-out (employee already checked in)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.bulk_import:1
+msgid "Import multiple attendance records in a single request."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.bulk_import:3
+msgid "Zoho processes check-in and check-out as **separate entries**, so each record should contain either ``checkIn`` or ``checkOut`` (not both)::"
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.bulk_import:12
+msgid "List of check-in / check-out dicts."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.bulk_import:13
+msgid "Datetime format for all records (default ``\"yyyy-MM-dd HH:mm:ss\"``)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.bulk_import:15
+msgid "Import result; may contain an ``errorDates`` key on partial failure."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_user_report:1
+msgid "Retrieve the attendance report for a date range."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_user_report:3
+msgid "Without an employee identifier the response covers the authenticated user. Paginate with *start_index* in steps of 100."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_user_report:6
+msgid "Period start (e.g. ``\"01/04/2026\"``)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_user_report:7
+msgid "Period end."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_user_report:8
+msgid "Date format if different from the organisation default."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_user_report:9
+msgid "Pagination offset (0, 100, 200, …)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_user_report:11
+msgid "Each item contains ``employeeDetails`` and ``attendanceDetails``."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_entries:1
+msgid "Retrieve individual clock events (in/out timestamps) for a single day."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_entries:3
+msgid "Day string in the organisation's format or *date_format*."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_entries:5
+msgid "Clock entries with timestamps and metadata."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_shift_configuration:1
+msgid "Retrieve the shift configuration for an employee over a period."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_shift_configuration:3
+msgid "Period start in ``yyyy-MM-dd`` format."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_shift_configuration:4
+msgid "Period end in ``yyyy-MM-dd`` format."
+msgstr ""
+
+#: ../../../src/zoho_people/api/attendance.py:docstring of zoho_people.api.attendance.AttendanceAPI.get_shift_configuration:6
+msgid "Shift details: name, start/end times, weekends, public holidays."
+msgstr ""

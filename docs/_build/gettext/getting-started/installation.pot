@@ -1,0 +1,45 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, Giuseppe Giudice
+# This file is distributed under the same license as the zoho-people-sdk package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: zoho-people-sdk 0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-04-27 06:49+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../../getting-started/installation.rst:2
+msgid "Installation"
+msgstr ""
+
+#: ../../getting-started/installation.rst:5
+msgid "Requirements"
+msgstr ""
+
+#: ../../getting-started/installation.rst:7
+msgid "Python 3.10 or newer"
+msgstr ""
+
+#: ../../getting-started/installation.rst:8
+msgid "A Zoho People account with API access"
+msgstr ""
+
+#: ../../getting-started/installation.rst:11
+msgid "From PyPI"
+msgstr ""
+
+#: ../../getting-started/installation.rst:17
+msgid "With browser fallback (Playwright, for attendance without admin permissions):"
+msgstr ""
+
+#: ../../getting-started/installation.rst:25
+msgid "Development install"
+msgstr ""

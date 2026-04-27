@@ -1,0 +1,65 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, Giuseppe Giudice
+# This file is distributed under the same license as the zoho-people-sdk package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: zoho-people-sdk 0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-04-27 06:49+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../../guide/error-handling.rst:2
+msgid "Error Handling"
+msgstr ""
+
+#: ../../guide/error-handling.rst:4
+msgid "All SDK errors inherit from :class:`~zoho_people.exceptions.ZohoPeopleError`."
+msgstr ""
+
+#: ../../guide/error-handling.rst:7
+msgid "Exception hierarchy"
+msgstr ""
+
+#: ../../guide/error-handling.rst:19
+msgid "Catching exceptions"
+msgstr ""
+
+#: ../../guide/error-handling.rst:54
+msgid "Exception attributes"
+msgstr ""
+
+#: ../../guide/error-handling.rst:56
+msgid "Every exception exposes:"
+msgstr ""
+
+#: ../../guide/error-handling.rst:58
+msgid "``message`` — human-readable description"
+msgstr ""
+
+#: ../../guide/error-handling.rst:59
+msgid "``status_code`` — HTTP status code (may be ``None``)"
+msgstr ""
+
+#: ../../guide/error-handling.rst:60
+msgid "``error_code`` — Zoho internal error code (may be ``None``)"
+msgstr ""
+
+#: ../../guide/error-handling.rst:61
+msgid "``details`` — additional context dict"
+msgstr ""
+
+#: ../../guide/error-handling.rst:64
+msgid "Retry behaviour"
+msgstr ""
+
+#: ../../guide/error-handling.rst:66
+msgid ":class:`~zoho_people.client.ZohoPeopleClient` automatically retries on :class:`~zoho_people.exceptions.ZohoPeopleRateLimitError` up to ``max_retries`` times (default 3) with exponential back-off starting at ``retry_backoff`` seconds:"
+msgstr ""

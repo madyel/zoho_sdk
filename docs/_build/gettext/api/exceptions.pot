@@ -1,0 +1,67 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, Giuseppe Giudice
+# This file is distributed under the same license as the zoho-people-sdk package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: zoho-people-sdk 0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-04-27 06:49+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../../api/exceptions.rst:2
+msgid "Exceptions"
+msgstr ""
+
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions:1
+msgid "Typed exceptions for Zoho People SDK."
+msgstr ""
+
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleError:1
+msgid "Base exception for all Zoho People SDK errors."
+msgstr ""
+
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleAuthError:0
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleError:0
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleNotFoundError:0
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeoplePermissionError:0
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleRateLimitError:0
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleValidationError:0
+msgid "Parameters"
+msgstr ""
+
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleAuthError:0
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleError:0
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleNotFoundError:0
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeoplePermissionError:0
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleRateLimitError:0
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleValidationError:0
+msgid "Return type"
+msgstr ""
+
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleAuthError:1
+msgid "Authentication / authorization failure (HTTP 401/403 or Zoho error_code 9000)."
+msgstr ""
+
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleRateLimitError:1
+msgid "Rate limit exceeded (HTTP 429)."
+msgstr ""
+
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleNotFoundError:1
+msgid "Resource not found (HTTP 404)."
+msgstr ""
+
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeopleValidationError:1
+msgid "Invalid parameters (HTTP 400/422 or Zoho internal status=1)."
+msgstr ""
+
+#: ../../../src/zoho_people/exceptions.py:docstring of zoho_people.exceptions.ZohoPeoplePermissionError:1
+msgid "Operation not permitted for the current user role."
+msgstr ""

@@ -1,0 +1,69 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, Giuseppe Giudice
+# This file is distributed under the same license as the zoho-people-sdk package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: zoho-people-sdk 0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-04-27 06:49+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../../contributing.rst:2
+msgid "Contributing"
+msgstr ""
+
+#: ../../contributing.rst:4
+msgid "Fork the repository on GitHub"
+msgstr ""
+
+#: ../../contributing.rst:5
+msgid "Create a feature branch: ``git checkout -b feature/my-feature``"
+msgstr ""
+
+#: ../../contributing.rst:6
+msgid "Install dev dependencies: ``pip install -e \".[dev]\"``"
+msgstr ""
+
+#: ../../contributing.rst:7
+msgid "Write tests in ``tests/``"
+msgstr ""
+
+#: ../../contributing.rst:8
+msgid "Run the test suite: ``pytest``"
+msgstr ""
+
+#: ../../contributing.rst:9
+msgid "Lint: ``ruff check src/`` and ``mypy src/zoho_people``"
+msgstr ""
+
+#: ../../contributing.rst:10
+msgid "Open a pull request"
+msgstr ""
+
+#: ../../contributing.rst:13
+msgid "Coding style"
+msgstr ""
+
+#: ../../contributing.rst:15
+msgid "Black-compatible formatting (line length 100)"
+msgstr ""
+
+#: ../../contributing.rst:16
+msgid "Type hints on all public functions"
+msgstr ""
+
+#: ../../contributing.rst:17
+msgid "NumPy-style docstrings"
+msgstr ""
+
+#: ../../contributing.rst:18
+msgid "All docstrings in **English**"
+msgstr ""

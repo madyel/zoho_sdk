@@ -1,17 +1,42 @@
-# Zoho Vertical Studio SDK – Python
+# zoho-people-sdk
 
-Python SDK for the **Zoho Vertical Studio REST APIs v6**.
+[![CI](https://github.com/madyel83/zoho-people-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/madyel83/zoho-people-sdk/actions)
+[![Docs](https://readthedocs.org/projects/zoho-people-sdk/badge/?version=latest)](https://zoho-people-sdk.readthedocs.io/en/latest/)
+[![PyPI](https://img.shields.io/pypi/v/zoho-people-sdk)](https://pypi.org/project/zoho-people-sdk/)
+[![Python](https://img.shields.io/pypi/pyversions/zoho-people-sdk)](https://pypi.org/project/zoho-people-sdk/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Covers: Records CRUD, Metadata, Modules, COQL Query, Bulk Read/Write, Notifications.
+Python SDK for the **Zoho People REST API**.
+
+Covers attendance, timesheet, leave management, and employee records — with automatic OAuth token refresh, typed exceptions, and full type hints.
+
+📚 **Full documentation:** [zoho-people-sdk.readthedocs.io](https://zoho-people-sdk.readthedocs.io)
+
+---
+
+## Features
+
+- **Attendance** — check-in / check-out, bulk import, user reports, shift configuration
+- **Timesheet** — create, submit, approve time logs and timesheet periods
+- **Leave** — apply, approve, cancel leave requests; leave balance report
+- **Employees** — list, search by email / ID, create and update records
+- **OAuth 2.0** — automatic token refresh, `from_env()` helper, multi data-centre support
+- **Typed exceptions** — `ZohoPeopleAuthError`, `ZohoPeoplePermissionError`, `ZohoPeopleRateLimitError`, …
+- **PEP 561** — fully typed, `py.typed` marker included
 
 ---
 
 ## Installation
 
 ```bash
-pip install requests          # only runtime dependency
-# or, once published:
-pip install zoho-vertical-sdk
+pip install zoho-people-sdk
+```
+
+With browser fallback for attendance (when API permissions are unavailable):
+
+```bash
+pip install "zoho-people-sdk[browser]"
+playwright install chromium
 ```
 
 ---
@@ -19,305 +44,56 @@ pip install zoho-vertical-sdk
 ## Quick Start
 
 ```python
-from zoho_vertical_sdk import ZohoVerticalClient, ZohoOAuthToken
+from zoho_people import ZohoPeopleAuth, ZohoPeopleClient
 
-# Static access token
-auth = ZohoOAuthToken(access_token="100xx.your_access_token_here")
+# Load credentials from environment variables:
+# ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN, ZOHO_DATA_CENTRE
+auth   = ZohoPeopleAuth.from_env()
+client = ZohoPeopleClient(auth=auth)
 
-# Auto-refresh via refresh token
-auth = ZohoOAuthToken(
-    client_id="1000.XXXXX",
-    client_secret="yyyyyyy",
-    refresh_token="1000.xxxxxxxx",
-    accounts_url="https://accounts.zoho.eu",   # EU data centre
+# Employees
+employees = client.employee.list()
+
+# Add a time log
+client.timesheet.add_timelog(
+    user="mario.rossi@company.com",
+    work_date="2026-04-25",
+    hours="08:00",
+    job_name="My Project",
 )
 
-# Load from environment variables
-# ZOHO_ACCESS_TOKEN, ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN
-auth = ZohoOAuthToken.from_env()
-
-client = ZohoVerticalClient(
-    auth=auth,
-    api_domain="https://zohoverticalapis.com",  # adjust for your DC
-)
-```
-
----
-
-## Data Centre URLs
-
-| Region  | API Domain                         | Accounts URL                    |
-|---------|------------------------------------|---------------------------------|
-| US      | `https://zohoverticalapis.com`     | `https://accounts.zoho.com`     |
-| EU      | `https://zohoverticalapis.eu`      | `https://accounts.zoho.eu`      |
-| IN      | `https://zohoverticalapis.in`      | `https://accounts.zoho.in`      |
-| AU      | `https://zohoverticalapis.com.au`  | `https://accounts.zoho.com.au`  |
-| JP      | `https://zohoverticalapis.jp`      | `https://accounts.zoho.jp`      |
-
----
-
-## Modules API
-
-```python
-# List all modules
-modules = client.modules.list_modules()
-for m in modules:
-    print(m["api_name"], "–", m["plural_label"])
-
-# Filter by status
-hidden = client.modules.list_modules(status="user_hidden")
-
-# Get single module
-lead_module = client.modules.get_module("Leads")
-```
-
----
-
-## Records API
-
-### List Records
-
-```python
-resp = client.records.list(
-    "Leads",
-    fields=["Last_Name", "Email", "Phone"],
-    page=1,
-    per_page=50,
-    sort_by="Created_Time",
-    sort_order="desc",
-)
-for record in resp["data"]:
-    print(record["Last_Name"], record.get("Email"))
-```
-
-### Auto-paginate (all records)
-
-```python
-all_leads = client.records.get_all("Leads", fields=["Last_Name", "Email"])
-print(f"Total: {len(all_leads)} leads")
-```
-
-### Get by ID
-
-```python
-lead = client.records.get("Leads", "4876876000000123456")
-print(lead["Last_Name"])
-```
-
-### Create
-
-```python
-results = client.records.create("Leads", [
-    {"Last_Name": "Rossi", "Email": "m.rossi@example.com", "Phone": "+39 02 1234567"},
-    {"Last_Name": "Bianchi", "Email": "l.bianchi@example.com"},
-])
-for r in results:
-    if r["code"] == "SUCCESS":
-        print("Created ID:", r["details"]["id"])
-```
-
-### Update
-
-```python
-results = client.records.update("Leads", [
-    {"id": "4876876000000123456", "Email": "new.email@example.com"},
-])
-```
-
-### Upsert
-
-```python
-results = client.records.upsert(
-    "Leads",
-    records=[{"Last_Name": "Verdi", "Email": "g.verdi@example.com"}],
-    duplicate_check_fields=["Email"],
-)
-```
-
-### Delete
-
-```python
-results = client.records.delete("Leads", ids=["4876876000000123456"])
-```
-
-### Search
-
-```python
-# By criteria
-resp = client.records.search(
-    "Leads",
-    criteria="(Last_Name:equals:Rossi)",
-    fields=["Last_Name", "Email"],
+# Pending leave requests
+pending = client.leave.get_pending(
+    from_date="01-Apr-2026",
+    to_date="30-Apr-2026",
 )
 
-# By email
-resp = client.records.search("Contacts", email="m.rossi@example.com")
-
-# Full-text keyword
-resp = client.records.search("Accounts", word="Acme")
-```
-
-### Related Records & Notes
-
-```python
-# Related Contacts of an Account
-related = client.records.get_related("Accounts", "9876000001", "Contacts")
-
-# Notes on a Lead
-notes = client.records.get_notes("Leads", "4876876000000123456")
-
-# Create a note
-client.records.create_note(
-    "Leads", "4876876000000123456",
-    note_title="Follow-up",
-    note_content="Called and left voicemail.",
-)
-
-# Attachments
-attachments = client.records.get_attachments("Leads", "4876876000000123456")
-```
-
----
-
-## Metadata API
-
-```python
-# Fields
-fields = client.metadata.get_fields("Leads")
-for f in fields:
-    print(f["api_name"], f["data_type"])
-
-# Filter by type
-lookups = client.metadata.get_fields("Contacts", field_type="lookup")
-
-# Single field
-field = client.metadata.get_field("Leads", "4876876000000014001")
-
-# Layouts
-layouts = client.metadata.get_layouts("Leads")
-
-# Custom views
-views = client.metadata.get_custom_views("Leads")
-
-# Related lists
-related_lists = client.metadata.get_related_lists("Accounts")
-```
-
----
-
-## Query API (COQL)
-
-### Raw query
-
-```python
-result = client.query.execute(
-    "SELECT Last_Name, Email, Created_Time "
-    "FROM Leads "
-    "WHERE (Last_Name is not null) "
-    "ORDER BY Created_Time DESC "
-    "LIMIT 0, 10"
-)
-for row in result["data"]:
-    print(row)
-```
-
-### Fluent builder
-
-```python
-result = (
-    client.query
-    .select("Last_Name", "Email", "Account_Name.Account_Name")
-    .from_module("Contacts")
-    .where("(Email like '%example.com')")
-    .order_by("Last_Name", "ASC")
-    .limit(offset=0, count=50)
-    .run()
-)
-
-# Auto-paginate all results
-all_rows = (
-    client.query
-    .select("Last_Name", "Email")
-    .from_module("Leads")
-    .where("Last_Name is not null")
-    .run_all()
-)
-```
-
-### Aggregate / GROUP BY
-
-```python
-result = client.query.execute(
-    "SELECT Lead_Status, COUNT(id) AS total "
-    "FROM Leads "
-    "GROUP BY Lead_Status "
-    "LIMIT 0, 200"
-)
-```
-
-### Cross-module JOIN via lookup dot-notation
-
-```python
-result = client.query.execute(
-    "SELECT Last_Name, 'Account_Name.Account_Name', 'Account_Name.Phone' "
-    "FROM Contacts "
-    "WHERE (Account_Name.Industry = 'Technology') "
-    "LIMIT 0, 100"
+# Monthly attendance report
+report = client.attendance.get_user_report(
+    start_date="01/04/2026",
+    end_date="30/04/2026",
+    date_format="dd/MM/yyyy",
 )
 ```
 
 ---
 
-## Bulk API
+## Environment Variables
 
-### Bulk Read
+Copy `.env.example` to `.env`:
 
-```python
-# 1. Create job
-job = client.bulk.create_read_job(
-    module="Leads",
-    fields=["Last_Name", "Email", "Phone", "Created_Time"],
-    criteria="(Created_Time >= '2025-01-01T00:00:00+00:00')",
-)
-job_id = job["data"][0]["details"]["id"]
-
-# 2. Wait for completion
-status = client.bulk.wait_for_read_job(job_id, poll_interval=5, timeout=300)
-
-# 3. Download CSV
-csv_bytes = client.bulk.download_read_result(job_id)
-with open("leads_export.csv", "wb") as f:
-    f.write(csv_bytes)
-
-# 4. Cleanup
-client.bulk.delete_read_job(job_id)
+```env
+ZOHO_CLIENT_ID=1000.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ZOHO_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ZOHO_DATA_CENTRE=US          # US | EU | IN | AU | JP
+ZOHO_REFRESH_TOKEN=1000.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ZOHO_USER_EMAIL=you@company.com
 ```
 
----
+Required OAuth scopes:
 
-## Notifications API
-
-```python
-# Subscribe
-channel = client.notifications.enable(
-    channel_id="100000006800211",
-    events=["Leads.create", "Leads.edit", "Leads.delete"],
-    channel_expiry="2026-12-31T23:59:59+05:30",
-    notify_url="https://myapp.example.com/webhooks/zoho",
-    token="my_secret_token",
-)
-
-# List channels
-channels = client.notifications.list_channels()
-
-# Renew expiry
-client.notifications.update(
-    channel_id="100000006800211",
-    channel_expiry="2027-06-30T23:59:59+05:30",
-)
-
-# Disable
-client.notifications.disable_raw(["100000006800211"])
+```
+ZOHOPEOPLE.forms.ALL,ZOHOPEOPLE.attendance.ALL,ZOHOPEOPLE.timetracker.ALL,ZOHOPEOPLE.leave.ALL
 ```
 
 ---
@@ -325,171 +101,62 @@ client.notifications.disable_raw(["100000006800211"])
 ## Error Handling
 
 ```python
-from zoho_vertical_sdk.exceptions import (
-    ZohoAuthError,
-    ZohoNotFoundError,
-    ZohoRateLimitError,
-    ZohoValidationError,
-    ZohoAPIError,
+from zoho_people.exceptions import (
+    ZohoPeopleAuthError,
+    ZohoPeoplePermissionError,
+    ZohoPeopleRateLimitError,
+    ZohoPeopleNotFoundError,
+    ZohoPeopleValidationError,
+    ZohoPeopleError,
 )
 
 try:
-    lead = client.records.get("Leads", "nonexistent_id")
-except ZohoNotFoundError:
-    print("Record not found")
-except ZohoAuthError:
-    print("Check your OAuth token / scopes")
-except ZohoRateLimitError:
-    print("Rate limit hit – the SDK will auto-retry up to max_retries times")
-except ZohoValidationError as e:
-    print("Bad request:", e.message, e.details)
-except ZohoAPIError as e:
+    client.timesheet.add_timelog(...)
+except ZohoPeoplePermissionError:
+    print("Missing role permission in Zoho People settings")
+except ZohoPeopleAuthError:
+    print("Invalid or expired OAuth token")
+except ZohoPeopleRateLimitError:
+    print("Rate limit hit — SDK will auto-retry")
+except ZohoPeopleError as e:
     print(f"API error {e.status_code}: {e.message}")
 ```
 
 ---
 
-## Configuration
+## Data Centres
 
-```python
-client = ZohoVerticalClient(
-    auth=auth,
-    api_domain="https://zohoverticalapis.eu",   # EU data centre
-    version="v6",
-    timeout=60,           # HTTP timeout in seconds
-    max_retries=3,        # Retry on rate-limit / 5xx
-    retry_backoff=1.0,    # Base back-off (doubles each retry)
-)
-```
+| Region    | Code | Accounts URL                  |
+|-----------|------|-------------------------------|
+| US        | `US` | `accounts.zoho.com`           |
+| Europe    | `EU` | `accounts.zoho.eu`            |
+| India     | `IN` | `accounts.zoho.in`            |
+| Australia | `AU` | `accounts.zoho.com.au`        |
+| Japan     | `JP` | `accounts.zoho.jp`            |
 
 ---
 
-## Context Manager
+## Documentation
 
-```python
-with ZohoVerticalClient(auth=auth, api_domain="https://zohoverticalapis.com") as client:
-    leads = client.records.list("Leads")
-# HTTP session is closed automatically
-```
+Full documentation is available at **[zoho-people-sdk.readthedocs.io](https://zoho-people-sdk.readthedocs.io)** in English and Italian:
+
+- [Getting Started](https://zoho-people-sdk.readthedocs.io/en/latest/getting-started/installation.html)
+- [User Guide](https://zoho-people-sdk.readthedocs.io/en/latest/guide/attendance.html)
+- [API Reference](https://zoho-people-sdk.readthedocs.io/en/latest/api/client.html)
 
 ---
 
-## OAuth Scopes Reference
+## Contributing
 
-Format: `ZohoVertical.<scope_name>.<operation>`
-Operations: `ALL` · `READ` · `CREATE` · `UPDATE` · `DELETE`
-
-### Modules (`ZohoVertical.modules.*`)
-
-| Scope | Description |
-|-------|-------------|
-| `ZohoVertical.modules.ALL` | Full access (CRUD) to all modules |
-| `ZohoVertical.modules.READ` | Read records from all modules |
-| `ZohoVertical.modules.CREATE` | Create records in all modules |
-| `ZohoVertical.modules.UPDATE` | Update records in all modules |
-| `ZohoVertical.modules.DELETE` | Delete records from all modules |
-| `ZohoVertical.modules.<ModuleName>.ALL` | Full access to a specific module (e.g. `modules.Leads.ALL`) |
-| `ZohoVertical.modules.<ModuleName>.READ` | Read-only access to a specific module |
-| `ZohoVertical.modules.<ModuleName>.CREATE` | Create records in a specific module |
-| `ZohoVertical.modules.<ModuleName>.UPDATE` | Update records in a specific module |
-| `ZohoVertical.modules.<ModuleName>.DELETE` | Delete records in a specific module |
-
-### Settings (`ZohoVertical.settings.*`)
-
-| Scope | Description |
-|-------|-------------|
-| `ZohoVertical.settings.ALL` | Full access to all settings |
-| `ZohoVertical.settings.modules.READ` | Read module metadata (list, schema) |
-| `ZohoVertical.settings.modules.CREATE` | Create custom modules |
-| `ZohoVertical.settings.modules.UPDATE` | Update module configuration |
-| `ZohoVertical.settings.modules.DELETE` | Delete custom modules |
-| `ZohoVertical.settings.fields.READ` | Read field definitions |
-| `ZohoVertical.settings.fields.CREATE` | Create custom fields |
-| `ZohoVertical.settings.fields.UPDATE` | Update field configuration |
-| `ZohoVertical.settings.fields.DELETE` | Delete custom fields |
-| `ZohoVertical.settings.layouts.READ` | Read layout definitions |
-| `ZohoVertical.settings.layouts.CREATE` | Create layouts |
-| `ZohoVertical.settings.layouts.UPDATE` | Update layouts |
-| `ZohoVertical.settings.layouts.DELETE` | Delete layouts |
-| `ZohoVertical.settings.custom_views.READ` | Read custom views |
-| `ZohoVertical.settings.custom_views.CREATE` | Create custom views |
-| `ZohoVertical.settings.custom_views.UPDATE` | Update custom views |
-| `ZohoVertical.settings.custom_views.DELETE` | Delete custom views |
-| `ZohoVertical.settings.related_lists.READ` | Read related lists |
-| `ZohoVertical.settings.related_lists.UPDATE` | Update related lists |
-| `ZohoVertical.settings.roles.READ` | Read roles |
-| `ZohoVertical.settings.roles.CREATE` | Create roles |
-| `ZohoVertical.settings.roles.UPDATE` | Update roles |
-| `ZohoVertical.settings.roles.DELETE` | Delete roles |
-| `ZohoVertical.settings.profiles.READ` | Read profiles |
-| `ZohoVertical.settings.profiles.CREATE` | Create profiles |
-| `ZohoVertical.settings.profiles.UPDATE` | Update profiles |
-| `ZohoVertical.settings.profiles.DELETE` | Delete profiles |
-| `ZohoVertical.settings.territories.READ` | Read territories |
-| `ZohoVertical.settings.territories.CREATE` | Create territories |
-| `ZohoVertical.settings.territories.UPDATE` | Update territories |
-| `ZohoVertical.settings.territories.DELETE` | Delete territories |
-| `ZohoVertical.settings.variables.READ` | Read global variables |
-| `ZohoVertical.settings.variables.CREATE` | Create global variables |
-| `ZohoVertical.settings.variables.UPDATE` | Update global variables |
-| `ZohoVertical.settings.variables.DELETE` | Delete global variables |
-| `ZohoVertical.settings.tags.READ` | Read tags |
-| `ZohoVertical.settings.tags.CREATE` | Create tags |
-| `ZohoVertical.settings.tags.UPDATE` | Update tags |
-| `ZohoVertical.settings.tags.DELETE` | Delete tags |
-| `ZohoVertical.settings.tab_groups.READ` | Read tab groups |
-| `ZohoVertical.settings.tab_groups.UPDATE` | Update tab groups |
-| `ZohoVertical.settings.macros.READ` | Read macros |
-| `ZohoVertical.settings.macros.CREATE` | Create macros |
-| `ZohoVertical.settings.macros.UPDATE` | Update macros |
-| `ZohoVertical.settings.macros.DELETE` | Delete macros |
-| `ZohoVertical.settings.custom_links.READ` | Read custom links |
-| `ZohoVertical.settings.custom_links.CREATE` | Create custom links |
-| `ZohoVertical.settings.custom_links.UPDATE` | Update custom links |
-| `ZohoVertical.settings.custom_links.DELETE` | Delete custom links |
-| `ZohoVertical.settings.custom_buttons.READ` | Read custom buttons |
-| `ZohoVertical.settings.custom_buttons.CREATE` | Create custom buttons |
-| `ZohoVertical.settings.custom_buttons.UPDATE` | Update custom buttons |
-| `ZohoVertical.settings.custom_buttons.DELETE` | Delete custom buttons |
-| `ZohoVertical.settings.currencies.READ` | Read currencies |
-| `ZohoVertical.settings.currencies.CREATE` | Create currencies |
-| `ZohoVertical.settings.currencies.UPDATE` | Update currencies |
-
-### Bulk (`ZohoVertical.bulk.*`)
-
-| Scope | Description |
-|-------|-------------|
-| `ZohoVertical.bulk.ALL` | Full access to bulk read/write APIs |
-| `ZohoVertical.bulk.READ` | Download bulk read job results |
-| `ZohoVertical.bulk.CREATE` | Create bulk read/write jobs |
-| `ZohoVertical.bulk.UPDATE` | Update bulk jobs |
-| `ZohoVertical.bulk.DELETE` | Delete bulk jobs |
-
-### Notifications (`ZohoVertical.notifications.*`)
-
-| Scope | Description |
-|-------|-------------|
-| `ZohoVertical.notifications.ALL` | Full access to notifications |
-| `ZohoVertical.notifications.READ` | List notification channels |
-| `ZohoVertical.notifications.CREATE` | Enable/subscribe notifications |
-| `ZohoVertical.notifications.UPDATE` | Update notification channels |
-| `ZohoVertical.notifications.DELETE` | Disable/delete notifications |
-
-### Recommended scope sets
-
-```
-# Minimum read-only
-ZohoVertical.modules.READ,ZohoVertical.settings.modules.READ,ZohoVertical.settings.fields.READ
-
-# Full access (default for this SDK)
-ZohoVertical.modules.ALL,ZohoVertical.settings.ALL,ZohoVertical.bulk.ALL
-
-# Full access including notifications
-ZohoVertical.modules.ALL,ZohoVertical.settings.ALL,ZohoVertical.bulk.ALL,ZohoVertical.notifications.ALL
-```
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Install dev dependencies: `pip install -e ".[dev]"`
+4. Run tests: `pytest`
+5. Lint: `ruff check src/`
+6. Open a pull request
 
 ---
 
 ## License
 
-MIT
+[MIT](LICENSE) © 2026 madyel83

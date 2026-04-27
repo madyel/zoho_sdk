@@ -1,0 +1,294 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, Giuseppe Giudice
+# This file is distributed under the same license as the zoho-people-sdk package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: zoho-people-sdk 0.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-04-27 06:49+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../../api/timesheet.rst:2
+msgid "Timesheet"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet:1
+msgid "Timesheet API – gestione timesheet e time log in Zoho People."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet:3
+msgid "Endpoint coperti:"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet:4
+msgid "GET  /api/timetracker/gettimesheet           – lista timesheet GET  /api/timetracker/gettimesheetdetails    – dettaglio timesheet POST /api/timetracker/createtimesheet        – crea timesheet POST /api/timetracker/modifytimesheet        – modifica / invia per approvazione POST /api/timetracker/deletetimesheet        – elimina timesheet POST /api/timetracker/approvetimesheet       – approva / rifiuta timesheet GET  /api/timetracker/gettimelogdetails      – dettaglio time log POST /api/timetracker/addtimelog             – aggiungi time log POST /api/timetracker/edittimelog            – modifica time log POST /api/timetracker/deletetimelog          – elimina time log GET  /api/timetracker/getpayrollreport       – report payroll GET  /api/timetracker/gettimetrackersettings – impostazioni generali"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet:17
+msgid "Scope richiesto: ZOHOPEOPLE.timetracker.ALL Rate limit: 20–50 req/min a seconda dell'endpoint."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI:1
+msgid "Gestione completa di timesheet e time log Zoho People."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI:4
+msgid "Example"
+msgstr ""
+
+#: ../../api/timesheet.rst:0
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_all:0
+msgid "Parameters"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.list:1
+msgid "Recupera la lista dei timesheet."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.list:3
+msgid "Email, Employee ID, erecno o ``\"all\"`` per tutti."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.list:5
+msgid "Data inizio (nel formato aziendale o in ``date_format``)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.create:9
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_payroll_report:7
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.list:7
+msgid "Data fine."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.list:9
+msgid "``all`` | ``draft`` | ``pending`` | ``approved`` | ``rejected``"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.list:11
+msgid "``users`` | ``nonusers`` | ``usersandnonusers`` | ``logindisabled``"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.list:13
+msgid "Indice di inizio per la paginazione (default 0)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.list:15
+msgid "Numero di record per pagina (max 200)."
+msgstr ""
+
+#: ../../api/timesheet.rst:0
+msgid "Returns"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.list:18
+msgid "Lista di timesheet con campi: recordId, timesheetName, status, totalHours, billableHours, fromDate, toDate, …"
+msgstr ""
+
+#: ../../api/timesheet.rst:0
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_all:0
+msgid "Return type"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_all:1
+msgid "Auto-paginazione: recupera TUTTI i timesheet dell'utente."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_detail:1
+msgid "Recupera il dettaglio di un timesheet (time log inclusi)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_detail:3
+msgid "ID del timesheet (``recordId`` dalla lista)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_detail:6
+msgid "Dettaglio completo con time log, progetti, clienti."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.create:1
+msgid "Crea un nuovo timesheet."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.add_timelog:5
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.create:3
+msgid "Email o Employee ID del dipendente."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.create:5
+msgid "Nome del timesheet (es. ``\"Settimana 17/2026\"``)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.create:7
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_payroll_report:5
+msgid "Data inizio."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.create:11
+msgid "Descrizione del timesheet."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.create:13
+msgid "``all`` | ``Billable`` | ``Non Billable``"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.create:15
+msgid "Se True, invia subito per approvazione."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.create:18
+msgid "``{\"timesheetId\": [...], \"message\": \"...\"}``"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.modify:1
+msgid "Modifica un timesheet esistente o lo invia per approvazione."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.modify:3
+msgid "Per ri-sottomettere un timesheet rifiutato usare ``send_for_approval=True``."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.approve:15
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.modify:5
+msgid "``{\"timesheetId\": \"...\", \"message\": \"...\"}``"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.delete:1
+msgid "Elimina un timesheet."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.delete:3
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.delete_timelog:3
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.edit_timelog:3
+msgid "Risposta di conferma."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.approve:1
+msgid "Approva o rifiuta un timesheet (e opzionalmente i suoi time log)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.approve:3
+msgid "ID del timesheet."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.approve:5
+msgid "``\"approved\"`` | ``\"rejected\"``"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.approve:7
+msgid "Dict ``{timelog_id: \"approved\"|\"rejected\"}`` per approvazione parziale. Es: ``{\"469505000000272225\": \"approved\", \"469505000000272083\": \"rejected\"}``"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.approve:10
+msgid "Commento per l'approvazione/rifiuto."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.approve:12
+msgid "Se True, approva a tutti i livelli gerarchici."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_timelog:1
+msgid "Recupera il dettaglio di un singolo time log."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_timelog:3
+msgid "Dettaglio con: workDate, hours, jobName, billingStatus, …"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.add_timelog:1
+msgid "Aggiunge un time log a un timesheet."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.add_timelog:3
+msgid "Almeno uno tra ``job_id`` e ``job_name`` è obbligatorio."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.add_timelog:7
+msgid "Data di lavoro nel formato ``YYYY-MM-DD``."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.add_timelog:9
+msgid "Ore lavorate nel formato ``HH:MM`` (es. ``\"08:00\"``)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.add_timelog:11
+msgid "ID del job/attività."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.add_timelog:13
+msgid "Nome del job/attività (alternativa a job_id)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.add_timelog:15
+msgid "``\"Billable\"`` | ``\"Non Billable\"``"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.add_timelog:17
+msgid "Sottoattività / work item."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.add_timelog:19
+msgid "Descrizione delle ore lavorate."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.add_timelog:22
+msgid "``{\"timeLogId\": \"...\", \"message\": \"...\"}``"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.edit_timelog:1
+msgid "Modifica un time log esistente."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.delete_timelog:1
+msgid "Elimina un time log."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_payroll_report:1
+msgid "Recupera il report payroll (ore ordinarie, straordinari, ferie retribuite)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_payroll_report:3
+msgid "Email, Employee ID, erecno o ``\"all\"``."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_payroll_report:10
+msgid "Lista di record con: regularHour, OtHours, paidLeaveHours, totalAmount, …"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_settings:1
+msgid "Recupera le impostazioni generali del time tracker."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_settings:3
+msgid "Impostazioni: tipo log (ore/inizio-fine/timer), max ore/giorno, …"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_jobs:1
+msgid "Recupera la lista dei job disponibili."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_jobs:3
+msgid "Email o Employee ID del dipendente. Se omesso → tutti i job."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_jobs:5
+msgid "``\"in-progress\"`` (default) | ``\"completed\"`` | ``\"all\"``"
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_jobs:7
+msgid "Indice di partenza per paginazione."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_jobs:9
+msgid "Max record (default 200)."
+msgstr ""
+
+#: ../../../src/zoho_people/api/timesheet.py:docstring of zoho_people.api.timesheet.TimesheetAPI.get_jobs:12
+msgid "Lista di job con: jobId, jobName, projectName, clientName, jobStatus, jobBillableStatus, fromDate, toDate."
+msgstr ""
